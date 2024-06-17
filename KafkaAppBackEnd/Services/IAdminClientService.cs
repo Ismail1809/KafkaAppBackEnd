@@ -5,8 +5,8 @@ namespace KafkaAppBackEnd.Services
 {
     public interface IAdminClientService
     {
-        IEnumerable<string> GetTopics();
-        List<ConsumerResponse> GetConsumerGroup();
+        IEnumerable<TopicResponse> GetTopics(bool hideInternal);
+        List<ConsumerGroupResponse> GetConsumerGroup();
         Task CreateTopic(TopicRequest topicRequest);
         Task DeleteTopic(string topicName);
     }

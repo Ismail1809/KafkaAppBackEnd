@@ -4,9 +4,10 @@ namespace KafkaAppBackEnd.Models
 {
     public class TopicResponse
     {
-        public string? Topic { get; set; }
-        public int? Partitions { get; set; }
+        public string? Name { get; set; }
+        public Uuid? TopicId { get; set; }
+        public List<TopicPartitionInfo>? Partitions { get; set; }
         public Error? Error { get; set; }
-        public string? Type { get; set; }
+        public bool? IsInternal { get; set; }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace KafkaAppBackEnd.Models
 {
-    public class ConsumerResponse
+    public class ConsumerGroupResponse
     {
         public string? Group { get; set; }
         public Error? Error { get; set; }

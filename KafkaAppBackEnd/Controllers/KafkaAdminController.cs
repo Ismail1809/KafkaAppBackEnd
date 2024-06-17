@@ -19,11 +19,11 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topics")]
-        public IActionResult GetTopics()
+        public IActionResult GetTopics([FromQuery] bool hideInternal)
         {
             try
             {
-                var listOfTopics = _adminClientService.GetTopics();
+                var listOfTopics = _adminClientService.GetTopics(hideInternal);
 
                 if (listOfTopics == null)
                 {

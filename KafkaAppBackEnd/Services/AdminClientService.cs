@@ -15,27 +15,31 @@ namespace KafkaAppBackEnd.Services
             _adminClient = adminClient;
         }
 
-        public IEnumerable<string> GetTopics()
+        public IEnumerable<TopicResponse> GetTopics(bool hideInternal)
         {
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
-            var topicNames = metadata.Topics.Select(t => t.Topic);
-            
-            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames), null).Result;
-            var topicsMetadata = metadata.Topics;
+            var topicNames = metadata.Topics;
+            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            var visibleData = data.TopicDescriptions;
 
-            var visibleData = data.TopicDescriptions.Where(t => !t.IsInternal && !t.Name.StartsWith("_confluent")).Select(t => t.Name);
-
-            return visibleData;
+            if (hideInternal)
+            {
+                return visibleData.Where(t => !t.IsInternal && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas")).Select(t => new TopicResponse { Name = t.Name, Error = t.Error, IsInternal = t.IsInternal, Partitions = t.Partitions, TopicId = t.TopicId });
+            }
+            else
+            {
+                return visibleData.Select(t => new TopicResponse { Name = t.Name, Error = t.Error, IsInternal = t.IsInternal, Partitions = t.Partitions, TopicId = t.TopicId }); ;
+            }
         }
 
-        public List<ConsumerResponse> GetConsumerGroup()
+        public List<ConsumerGroupResponse> GetConsumerGroup()
         {
-            List<ConsumerResponse> consumerGroups = new List<ConsumerResponse>();
+            List<ConsumerGroupResponse> consumerGroups = new List<ConsumerGroupResponse>();
             var groups = _adminClient.ListGroups(TimeSpan.FromSeconds(10));
 
             foreach (var g in groups)
             {
-                consumerGroups.Add(new ConsumerResponse { Group = g.Group, Error = g.Error, State = g.State, BrokerId = g.Broker.BrokerId, Host = g.Broker.Host, Port = g.Broker.Port, ProtocolType = g.ProtocolType, Protocol = g.ProtocolType });
+                consumerGroups.Add(new ConsumerGroupResponse { Group = g.Group, Error = g.Error, State = g.State, BrokerId = g.Broker.BrokerId, Host = g.Broker.Host, Port = g.Broker.Port, ProtocolType = g.ProtocolType, Protocol = g.ProtocolType });
             }
 
             return consumerGroups;
