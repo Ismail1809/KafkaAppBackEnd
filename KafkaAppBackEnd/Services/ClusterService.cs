@@ -11,14 +11,12 @@ namespace KafkaAppBackEnd.Services
 {
     public class ClusterService: IClusterService
     {
-        //private readonly ILogger<AdminClientService> _logger;
         private readonly IConnectionRepository _connectionRepository;
         private IAdminClientService _adminClientService;
         private readonly IMapper _mapper;
 
         public ClusterService(IConnectionRepository connectionRepository, IAdminClientService adminClientService, IMapper mapper) 
         { 
-            //_logger = logger;
             _connectionRepository = connectionRepository;
             _adminClientService = adminClientService;
             _mapper = mapper;

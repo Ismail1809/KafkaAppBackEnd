@@ -18,7 +18,7 @@ using System.Linq;
 
 namespace KafkaAppBackEnd.Services
 {
-    public enum Choices
+    public enum SearchOption
     {
         Contains = 1,
         Exact = 2
@@ -27,7 +27,6 @@ namespace KafkaAppBackEnd.Services
     {
         private readonly ILogger<AdminClientService> _logger;
         private IAdminClient _adminClient;
-        public string currentHost = "";
         private readonly IProducer<string, string> _producer;
         private readonly IConsumer<string, string> _consumer;
 
@@ -49,13 +48,23 @@ namespace KafkaAppBackEnd.Services
             if (hideInternal)
             {
                 return visibleData.Where(t => !t.IsInternal && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"))
-                    .Select(t => new GetTopicsResponse { Name = t.Name, Error = t.Error, IsInternal = t.IsInternal, TopicId = t.TopicId});
+                    .Select(t => new GetTopicsResponse 
+                    { 
+                        Name = t.Name, 
+                        Error = t.Error, 
+                        IsInternal = t.IsInternal, 
+                        TopicId = t.TopicId
+                    });
             }
             else
             {
                 return visibleData.Select(t => new GetTopicsResponse 
                 {
-                    Name = t.Name, Error = t.Error, IsInternal = t.IsInternal, Partitions = t.Partitions, TopicId = t.TopicId
+                    Name = t.Name, 
+                    Error = t.Error, 
+                    IsInternal = t.IsInternal, 
+                    Partitions = t.Partitions, 
+                    TopicId = t.TopicId
                 });
             }
             
@@ -74,13 +83,22 @@ namespace KafkaAppBackEnd.Services
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()
         {
-
             List<GetConsumerGroupsResponse> consumerGroups = new List<GetConsumerGroupsResponse>();
             var groups = _adminClient.ListGroups(TimeSpan.FromSeconds(10));
 
             foreach (var g in groups)
             {
-                consumerGroups.Add(new GetConsumerGroupsResponse { Group = g.Group, Error = g.Error, State = g.State, BrokerId = g.Broker.BrokerId, Host = g.Broker.Host, Port = g.Broker.Port, ProtocolType = g.ProtocolType, Protocol = g.Protocol });
+                consumerGroups.Add(new GetConsumerGroupsResponse 
+                { 
+                    Group = g.Group, 
+                    Error = g.Error, 
+                    State = g.State, 
+                    BrokerId = g.Broker.BrokerId, 
+                    Host = g.Broker.Host, 
+                    Port = g.Broker.Port, 
+                    ProtocolType = g.ProtocolType, 
+                    Protocol = g.Protocol 
+                });
             }
 
             return consumerGroups;
@@ -88,7 +106,12 @@ namespace KafkaAppBackEnd.Services
 
         public async Task CreateTopic(CreateTopicRequest topicRequest)
         {
-            await _adminClient.CreateTopicsAsync([new TopicSpecification { Name = topicRequest.Name, ReplicationFactor = topicRequest.ReplicationFactor, NumPartitions = topicRequest.Partitions }]);
+            await _adminClient.CreateTopicsAsync([new TopicSpecification 
+            { 
+                Name = topicRequest.Name,
+                ReplicationFactor = topicRequest.ReplicationFactor, 
+                NumPartitions = topicRequest.Partitions 
+            }]);
         }
 
         public async Task RenameTopicAsync(string oldTopicName, string newTopicName)
@@ -117,15 +140,7 @@ namespace KafkaAppBackEnd.Services
 
         public async Task ProduceMessage(Message<string,string> message, string topic)
         {
-            //var kafkaMessage = new Message<string, string>
-            //{
-            //    //Value = JsonConvert.SerializeObject(message)
-            //    Value = message.Value
-
-            //};
-
-            await _producer.ProduceAsync(topic, message);
-            
+            await _producer.ProduceAsync(topic, message);    
         }
 
         public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
@@ -228,14 +243,14 @@ namespace KafkaAppBackEnd.Services
             return messages;
         }
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, Choices choice)
+        public IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, SearchOption choice)
         {
             var messages = GetMessagesFromX(topic, 0);
-            if (choice == Choices.Exact)
+            if (choice == SearchOption.Exact)
             {
                 return messages.Where(m => listOfKeys.Contains(m.Message.Key));
             }
-            else if(choice == Choices.Contains)
+            else if(choice == SearchOption.Contains)
             {
                 return messages.Where(m => listOfKeys.Any(t => m.Message.Key.Contains(t)));
             }
@@ -243,15 +258,15 @@ namespace KafkaAppBackEnd.Services
             return messages;
         }
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, Choices choice)
+        public IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, SearchOption choice)
         {
             var messages = GetMessagesFromX(topic, 0);
-            if (choice == Choices.Exact)
+            if (choice == SearchOption.Exact)
             {
                 return messages.Where(m => m.Message.Headers.Any(h => listOfPairs.Contains(h.Key) 
                 || listOfPairs.Contains(Encoding.UTF8.GetString(h.GetValueBytes()))));
             }
-            else if (choice == Choices.Contains)
+            else if (choice == SearchOption.Contains)
             {
                 return messages.Where(m => listOfPairs.Any(t => m.Message.Headers
                 .Any(h => h.Key.Contains(t) || Encoding.UTF8.GetString(h.GetValueBytes())
@@ -266,35 +281,21 @@ namespace KafkaAppBackEnd.Services
         public IEnumerable<ConsumeResult<string, string>> SearchByTimeStamps(string topic, DateTime? time1, DateTime? time2)
         {
             var messages = GetMessagesFromX(topic, 0);
-            if (time1 == null && time2 == null)
-            {
-                return messages;
-            }
-            else if (time1 == null && time2 != null)
-            {
-                return messages.Where(m => time2 > m.Message.Timestamp.UtcDateTime);
-            }
-            else if(time2 == null && time1 != null)
-            {
-                return messages.Where(m => time1 < m.Message.Timestamp.UtcDateTime);
-            }
-            else
-            {
-                return messages.Where(m => time1 < m.Message.Timestamp.UtcDateTime && time2 > m.Message.Timestamp.UtcDateTime);
-            }
+            var startTime = time1 ?? DateTime.MinValue;
+            var endTime = time2 ?? DateTime.MaxValue;
+
+            return messages.Where(m => startTime < m.Message.Timestamp.UtcDateTime && endTime > m.Message.Timestamp.UtcDateTime);  
         }
 
         public IEnumerable<ConsumeResult<string, string>> SearchByPartitions(string topic, int partition)
         {
             var messages = GetMessagesFromX(topic, 0);
             return messages.Where(m => m.Partition.Value == partition);
-            
         }
 
 
         public async Task ProduceAvroMessage(Message<string, string> message, string topic)
         {
-
             string brokerList = "localhost:9092";
             string schemaRegistryUrl = "localhost:8081";
             var avroTopic = "avro-topic";
@@ -338,7 +339,6 @@ namespace KafkaAppBackEnd.Services
             }
 
             CompareMessageSizes(brokerList, schemaRegistryUrl, topic, avroTopic);
-
         }
 
         public void CompareMessageSizes(string brokerList, string schemaRegistryUrl, string jsonTopic, string avroTopic)
@@ -401,12 +401,10 @@ namespace KafkaAppBackEnd.Services
 
         public string SetAddress(string address)
         {
-            currentHost = address;
-            var timer = new Stopwatch();
-            timer.Start();
+            var timer = Stopwatch.StartNew();
             _adminClient = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = address }).Build();
             timer.Stop();
-            _logger.LogInformation("Time taken on " + currentHost + ": " + timer.ElapsedMilliseconds.ToString());
+            _logger.LogInformation("Time taken on " + address + ": " + timer.ElapsedMilliseconds.ToString());
 
             return address;
         }
