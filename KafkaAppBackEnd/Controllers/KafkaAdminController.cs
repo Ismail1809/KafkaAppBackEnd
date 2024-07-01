@@ -11,6 +11,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Drawing.Printing;
 using System.Net;
 using System.Text;
+using SearchOption = KafkaAppBackEnd.Services.SearchOption;
 
 namespace KafkaAppBackEnd.Controllers
 {
@@ -156,7 +157,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("search-by-keys")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, Choices choice)
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, SearchOption choice)
         {
             try
             {
@@ -170,7 +171,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("search-by-headers")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, Choices choice)
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, SearchOption choice)
         {
             try
             {
