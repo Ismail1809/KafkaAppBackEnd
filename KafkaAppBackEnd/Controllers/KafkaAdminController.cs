@@ -11,6 +11,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Drawing.Printing;
 using System.Net;
 using System.Text;
+using SearchOption = KafkaAppBackEnd.Services.SearchOption;
 
 namespace KafkaAppBackEnd.Controllers
 {
@@ -156,7 +157,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("search-by-keys")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, Choices choice)
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, SearchOption choice)
         {
             try
             {
@@ -170,7 +171,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("search-by-headers")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, Choices choice)
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, SearchOption choice)
         {
             try
             {
@@ -211,6 +212,36 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpGet("compare-sizes")]
+        public async Task<ActionResult<string>> CompareSizes()
+        {
+            try
+            {
+                var message = _adminClientService.CompareSizes();
+                return Ok(message);
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+
+
+        [HttpGet("test-avro")]
+        public async Task<ActionResult<List<string>>> TestAvroMessages([FromQuery] string topic)
+        {
+            try
+            {
+                var messages = _adminClientService.CompareMessageSizes(topic);
+                return Ok(messages);
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+
+
         [HttpPost("produce-n-messages")]
         public async Task<IActionResult> ProduceRandomNumberOfMessage(int numberOfMessages, string topic)
         {
@@ -222,6 +253,42 @@ namespace KafkaAppBackEnd.Controllers
             catch (CreateTopicsException e)
             {
                 return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while cloning topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+
+        [HttpPost("publish-batch-messages")]
+        public async Task<IActionResult> PublishBatchMessages([FromBody]PublishBatchRequest batchRequest)
+        {
+            if (batchRequest.Key == null)
+            {
+                return base.StatusCode((int)HttpStatusCode.BadRequest, $"Key cannot be null");
+            }
+            try
+            {
+                await _adminClientService.BatchMessages(batchRequest.Topic, batchRequest.ListOfMessages, batchRequest.Key, batchRequest.Headers, batchRequest.partitionId);
+                return Ok($"Messages were published!");
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while batching message {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+        [HttpPost("publish-batch-messages-from-file")]
+        public async Task<IActionResult> PublishBatchMessagesFromFile([FromForm] Dictionary<string, string> headers, IFormFile formFile, string topic,
+            string separator, string key, int partitionId)
+        {
+            if (key == null)
+            {
+                return base.StatusCode((int)HttpStatusCode.BadRequest, $"Key cannot be null");
+            }
+            try
+            {
+                await _adminClientService.BatchMessagesFromFile(topic, formFile, separator, key, headers, partitionId);
+                return Ok($"Messages were published!");
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while batching message {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
             }
         }
 
