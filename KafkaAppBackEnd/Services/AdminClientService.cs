@@ -56,11 +56,19 @@ namespace KafkaAppBackEnd.Services
             if (hideInternal)
             {
                 return visibleData.Where(t => !t.IsInternal && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"))
+<<<<<<< HEAD
                     .Select(t => new GetTopicsResponse
                     {
                         Name = t.Name,
                         Error = t.Error,
                         IsInternal = t.IsInternal,
+=======
+                    .Select(t => new GetTopicsResponse 
+                    { 
+                        Name = t.Name, 
+                        Error = t.Error, 
+                        IsInternal = t.IsInternal, 
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
                         TopicId = t.TopicId
                     });
             }
@@ -68,10 +76,17 @@ namespace KafkaAppBackEnd.Services
             {
                 return visibleData.Select(t => new GetTopicsResponse
                 {
+<<<<<<< HEAD
                     Name = t.Name,
                     Error = t.Error,
                     IsInternal = t.IsInternal,
                     Partitions = t.Partitions,
+=======
+                    Name = t.Name, 
+                    Error = t.Error, 
+                    IsInternal = t.IsInternal, 
+                    Partitions = t.Partitions, 
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
                     TopicId = t.TopicId
                 });
             }
@@ -95,6 +110,7 @@ namespace KafkaAppBackEnd.Services
 
             foreach (var g in groups)
             {
+<<<<<<< HEAD
                 consumerGroups.Add(new GetConsumerGroupsResponse
                 {
                     Group = g.Group,
@@ -105,6 +121,18 @@ namespace KafkaAppBackEnd.Services
                     Port = g.Broker.Port,
                     ProtocolType = g.ProtocolType,
                     Protocol = g.Protocol
+=======
+                consumerGroups.Add(new GetConsumerGroupsResponse 
+                { 
+                    Group = g.Group, 
+                    Error = g.Error, 
+                    State = g.State, 
+                    BrokerId = g.Broker.BrokerId, 
+                    Host = g.Broker.Host, 
+                    Port = g.Broker.Port, 
+                    ProtocolType = g.ProtocolType, 
+                    Protocol = g.Protocol 
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
                 });
             }
 
@@ -113,11 +141,19 @@ namespace KafkaAppBackEnd.Services
 
         public async Task CreateTopic(CreateTopicRequest topicRequest)
         {
+<<<<<<< HEAD
             await _adminClient.CreateTopicsAsync([new TopicSpecification
             {
                 Name = topicRequest.Name,
                 ReplicationFactor = topicRequest.ReplicationFactor,
                 NumPartitions = topicRequest.Partitions
+=======
+            await _adminClient.CreateTopicsAsync([new TopicSpecification 
+            { 
+                Name = topicRequest.Name,
+                ReplicationFactor = topicRequest.ReplicationFactor, 
+                NumPartitions = topicRequest.Partitions 
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
             }]);
         }
 
@@ -146,7 +182,11 @@ namespace KafkaAppBackEnd.Services
 
         public async Task ProduceMessage(Message<string,string> message, string topic)
         {
+<<<<<<< HEAD
             await _producer.ProduceAsync(topic, message);
+=======
+            await _producer.ProduceAsync(topic, message);    
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
         }
 
         public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
@@ -290,7 +330,11 @@ namespace KafkaAppBackEnd.Services
             var startTime = time1 ?? DateTime.MinValue;
             var endTime = time2 ?? DateTime.MaxValue;
 
+<<<<<<< HEAD
             return messages.Where(m => startTime < m.Message.Timestamp.UtcDateTime && endTime > m.Message.Timestamp.UtcDateTime);
+=======
+            return messages.Where(m => startTime < m.Message.Timestamp.UtcDateTime && endTime > m.Message.Timestamp.UtcDateTime);  
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
         }
 
         public IEnumerable<ConsumeResult<string, string>> SearchByPartitions(string topic, int partition)
@@ -339,8 +383,12 @@ namespace KafkaAppBackEnd.Services
                 }
             }
 
+<<<<<<< HEAD
             return CompareMessageSizes(topic);
 
+=======
+            CompareMessageSizes(brokerList, schemaRegistryUrl, topic, avroTopic);
+>>>>>>> 9072f732532826c2fb912f63623cd9b5a08e5e43
         }
 
         public async Task<string> CompareSizes()
