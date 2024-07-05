@@ -1,7 +1,7 @@
 # Kafka Tool Application
 
 ## Application Definition
-Kafka Tool Application is a powerful utility designed to manage and interact with Kafka clusters. It provides an intuitive interface for performing various Kafka operations such as creating and managing topics, managing consumers, and clusters.
+Kafka Tool Application is a powerful utility designed to manage and interact with Kafka clusters. It provides an intuitive interface for performing various Kafka operations such as creating and managing topics, consumers, and clusters.
 
 ## Application Scope
 The scope of the Kafka Tool Application includes:
