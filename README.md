@@ -47,7 +47,7 @@ Step 2: **Start the application**
   ```
 
 ## Next
-- **[Integration](/INTEGRATION.MD)**
+- **[Integration](/INTEGRATION.md)**
 
 
 
