@@ -27,7 +27,7 @@ To run this quick start, you will need Docker and Docker Compose installed on a 
 
 Step 1: **Download or copy the contents of the docker-compose file**
    ```bash
-   https://github.com/Ismail1809/KafkaAppBackEnd.git
+   git clone https://github.com/Ismail1809/KafkaAppBackEnd.git
    cd KafkaAppBackEnd
    ```
 Step 2: **Start the Confluent Platform stack**
@@ -70,4 +70,12 @@ Kafka Admin Controller:
 - **DELETE /api/KafkaAdmin/set-address**: Delete specific topic
 
 Kafka Cluster Controller:
-- **Create connection**
+- **GET /api/KafkaCluster/get-connection**: Return a particular connection by id
+- **GET /api/KafkaCluster/get-connections**: Retrieve all connections
+- **PUT /api/KafkaCluster/update-connection**: Find connection by id and update it
+- **POST /api/KafkaCluster/create-connection**: Create a connection
+- **GET /api/KafkaCluster/check-connection**: Check a connection of particular bootstrap server
+- **POST /api/KafkaCluster/set-connection**: Set bootstrap server to given localhost
+- **DELETE /api/KafkaCluster/delete-address**: Delete connection
+
+
