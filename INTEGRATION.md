@@ -31,3 +31,5 @@ Kafka Cluster Controller:
 - **DELETE /api/KafkaCluster/delete-address**: Delete connection
 
 
+## Integration Models
+
