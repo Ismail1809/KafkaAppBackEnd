@@ -35,8 +35,7 @@ Step 2: **Start the Confluent Platform stack**
   docker compose up -d
   ```
 
-## Start Kafka Tool Application:
-- Before starting, we have to install .NET on our devices
+#### Now, as a next step, we should install .NET on our devices to run the program
 
 ## Installing .NET on your device:
 - Note: Open the new terminal
@@ -63,22 +62,16 @@ Step 2: **Install the .NET packages**:
   ```console
   % brew install --cask dotnet
   ```
-\
-Now, after installing the .NET, you can run the application by the following command:
-    ```bash
-    dotnet run
-    ```
-You will see this page:
-![Alt text]()
-
-Step 1: **Open Folder with Project**
-  ```bash
-  cd KafkaAppBackEnd
-  ```
-Step 2: **Start the application**
+## Run application
+- #### Now, after installing the .NET, you can run the application by the following command:
   ```bash
   dotnet run
   ```
+- #### After running the program you will see this page: 
+![Alt text](resources/SwaggerScreen.png)
+  
+  
+- #### To stop your program press CTRL-C
 
 ## Next
 - **[Integration](/INTEGRATION.md)**
