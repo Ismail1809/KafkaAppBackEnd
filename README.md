@@ -41,6 +41,8 @@ Step 2: **Start the Confluent Platform stack**
 - Note: Open the new terminal
    
 ### Windows:
+- You can install it through https://dotnet.microsoft.com/en-us/download/dotnet/8.0 or if you have ```winget``` follow the instruction:
+   
 Step 1: **Install the .NET 8 runtime**:
   ```bash
   winget install dotnet-runtime-8
