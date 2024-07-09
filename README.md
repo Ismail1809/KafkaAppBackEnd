@@ -21,7 +21,7 @@ The scope of the Kafka Tool Application includes:
 ## How to Run the Application in Docker
 
 ## Prerequisite:
-To run this quick start, you will need Docker and Docker Compose installed on a computer with a supported Operating System
+To run this quick start, you will need Docker(create an account as well) and Docker Compose installed on a computer with a supported Operating System
 
 ## Start and Install the docker-compose file:
 
@@ -36,6 +36,40 @@ Step 2: **Start the Confluent Platform stack**
   ```
 
 ## Start Kafka Tool Application:
+- Before starting, we have to install .NET on our devices
+
+## Installing .NET on your device:
+- Note: Open the new terminal
+   
+### Windows:
+Step 1: **Install the .NET 8 runtime**:
+  ```bash
+  winget install dotnet-runtime-8
+  ```
+Step 2: **Install the .NET 8 SDK**:
+  ```bash
+  winget install dotnet-sdk-8
+  ```
+Step 3: **Finally update an existing installation**:
+  ```bash
+  winget upgrade
+  ```
+### Unix/macOS:
+Step 1: **Install the Homebrew(package manager)**:
+  ```console
+  % /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  ```
+Step 2: **Install the .NET packages**:
+  ```console
+  % brew install --cask dotnet
+  ```
+\
+Now, after installing the .NET, you can run the application by the following command:
+    ```bash
+    dotnet run
+    ```
+You will see this page:
+![Alt text]()
 
 Step 1: **Open Folder with Project**
   ```bash
