@@ -33,4 +33,5 @@ Kafka Cluster Controller:
 
 
 ## Integration Models
-If you installed everything correctly, you will be able to run the program. After running it you will see the following page:
+If you installed everything correctly, you will be able to run the program. After running it you will be capable of seeing all integration models in Swagger:
+![End Point](resources/ExampleOfEndPoint.png)
