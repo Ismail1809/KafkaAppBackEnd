@@ -29,8 +29,21 @@ namespace KafkaAppBackEnd.Controllers
             _mapper = mapper;
         }
 
+        [HttpGet("get-connection")]
+        public async Task<ActionResult<Connection>> GetConnection(int id)
+        {
+            var connection = await _clusterService.GetConnection(id);
+
+            if (connection == null)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Can't find");
+            }
+
+            return Ok(connection);
+        }
+
         [HttpGet("get-connections")]
-        public async Task<ActionResult> GetConnections()
+        public async Task<ActionResult<IEnumerable<Connection>>> GetConnections()
         {
             var connections = await _clusterService.GetConnections();
 
@@ -43,21 +56,8 @@ namespace KafkaAppBackEnd.Controllers
 
         }
 
-        [HttpGet("get-connection")]
-        public async Task<ActionResult> GetConnection(int id)
-        {
-            var connection = await _clusterService.GetConnection(id);
-
-            if (connection == null)
-            {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Can't find");
-            }
-
-            return Ok(connection);
-        }
-
         [HttpPut("update-connection")]
-        public async Task<IActionResult> UpdateConnection(int id, ConnectionRequest connection)
+        public async Task<ActionResult<ConnectionRequest>> UpdateConnection(int id, ConnectionRequest connection)
         {
             var existingConnection = await _clusterService.GetConnection(id);
 
@@ -78,7 +78,7 @@ namespace KafkaAppBackEnd.Controllers
         }
        
         [HttpPost("create-connection")]
-        public async Task<ActionResult> CreateConnection(ConnectionRequest connection)
+        public async Task<ActionResult<Connection>> CreateConnection(ConnectionRequest connection)
         {
             var connections = await _clusterService.GetBootStrapServers();
 
@@ -90,7 +90,7 @@ namespace KafkaAppBackEnd.Controllers
             return Ok(newConnection);
         }
 
-        [HttpPost("check-connection")]
+        [HttpGet("check-connection")]
         public IActionResult CheckConnection([FromQuery] string address)
         {
             try

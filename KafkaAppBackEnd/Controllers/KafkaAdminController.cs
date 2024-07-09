@@ -27,7 +27,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topics")]
-        public IActionResult GetTopics([FromQuery] bool hideInternal)
+        public ActionResult<IEnumerable<GetTopicsResponse>> GetTopics([FromQuery] bool hideInternal)
         {
             //_configuration["Kafka:BootstrapServers"] = adress;
             try
@@ -46,8 +46,8 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        [HttpGet("get-consumers")]
-        public IActionResult GetConsumerGroups()
+        [HttpGet("get-consumer-groups")]
+        public ActionResult<List<GetConsumerGroupsResponse>> GetConsumerGroups()
         {
             try
             {
@@ -68,7 +68,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpPost("create-topic")]
-        public async Task<IActionResult> CreateTopics([FromBody] CreateTopicRequest topicRequest)
+        public async Task<ActionResult<string>> CreateTopic([FromBody] CreateTopicRequest topicRequest)
         {
 
             try
@@ -83,7 +83,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpPut("rename-topic")]
-        public async Task<IActionResult> RenameTopic(string oldTopicName, string newTopicName)
+        public async Task<ActionResult<string>> RenameTopic(string oldTopicName, string newTopicName)
         {
             if (oldTopicName == newTopicName)
             {
@@ -101,12 +101,12 @@ namespace KafkaAppBackEnd.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Error while updating connection");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Error while renaming topic");
             }
         }
 
         [HttpPost("clone-topic")]
-        public async Task<IActionResult> CloneTopic(string oldTopicName, string newTopicName)
+        public async Task<ActionResult<string>> CloneTopic(string oldTopicName, string newTopicName)
         {
             if(oldTopicName == newTopicName)
             {
@@ -129,16 +129,16 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("consume-messages")]
-        public async Task<IActionResult> ConsumeMessages([FromQuery]string topicName, int offset)
+        public async Task<ActionResult<List<ConsumeResult<string, string>>>> ConsumeMessages([FromQuery]string topicName, int offset)
         {
             try
             {
                 var messages = _adminClientService.GetMessagesFromX(topicName, offset);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value}));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
 
@@ -150,9 +150,9 @@ namespace KafkaAppBackEnd.Controllers
                 var messages = _adminClientService.GetSpecificPages(topic, pageSize, pageNumber);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
 
@@ -164,9 +164,9 @@ namespace KafkaAppBackEnd.Controllers
                 var messages = _adminClientService.SearchByKeys(topic, listOfKeys, choice);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
 
@@ -178,9 +178,9 @@ namespace KafkaAppBackEnd.Controllers
                 var messages = _adminClientService.SearchByHeaders(topic, listOfStrings, choice);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value, HeaderValue = m.Message.Headers.ToList().Select(h => Encoding.UTF8.GetString(h.GetValueBytes())).FirstOrDefault()}));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
 
@@ -192,9 +192,9 @@ namespace KafkaAppBackEnd.Controllers
                 var messages = _adminClientService.SearchByTimeStamps(topic, time1, time2);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
 
@@ -206,58 +206,28 @@ namespace KafkaAppBackEnd.Controllers
                 var messages = _adminClientService.SearchByPartitions(topic, partition);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
             }
         }
-
-        [HttpGet("compare-sizes")]
-        public async Task<ActionResult<string>> CompareSizes()
-        {
-            try
-            {
-                var message = _adminClientService.CompareSizes();
-                return Ok(message);
-            }
-            catch (CreateTopicsException e)
-            {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
-            }
-        }
-
-
-        [HttpGet("test-avro")]
-        public async Task<ActionResult<List<string>>> TestAvroMessages([FromQuery] string topic)
-        {
-            try
-            {
-                var messages = _adminClientService.CompareMessageSizes(topic);
-                return Ok(messages);
-            }
-            catch (CreateTopicsException e)
-            {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
-            }
-        }
-
 
         [HttpPost("produce-n-messages")]
-        public async Task<IActionResult> ProduceRandomNumberOfMessage(int numberOfMessages, string topic)
+        public async Task<ActionResult<string>> ProduceSpecificNumberOfMessage(int numberOfMessages, string topic)
         {
             try
             {
                 await _adminClientService.ProduceRandomNumberOfMessages(numberOfMessages, topic);
                 return Ok($"{numberOfMessages} messages were produced!");
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while cloning topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while producing messages");
             }
         }
 
-        [HttpPost("publish-batch-messages")]
-        public async Task<IActionResult> PublishBatchMessages([FromBody]PublishBatchRequest batchRequest)
+        [HttpPost("produce-batch-messages")]
+        public async Task<ActionResult<string>> PublishBatchMessages([FromBody]PublishBatchRequest batchRequest)
         {
             if (batchRequest.Key == null)
             {
@@ -268,13 +238,13 @@ namespace KafkaAppBackEnd.Controllers
                 await _adminClientService.BatchMessages(batchRequest.Topic, batchRequest.ListOfMessages, batchRequest.Key, batchRequest.Headers, batchRequest.partitionId);
                 return Ok($"Messages were published!");
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while batching message {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while producing batch of messages");
             }
         }
         [HttpPost("publish-batch-messages-from-file")]
-        public async Task<IActionResult> PublishBatchMessagesFromFile([FromForm] Dictionary<string, string> headers, IFormFile formFile, string topic,
+        public async Task<ActionResult<string>> PublishBatchMessagesFromFile([FromForm] Dictionary<string, string> headers, IFormFile formFile, string topic,
             string separator, string key, int partitionId)
         {
             if (key == null)
@@ -286,24 +256,24 @@ namespace KafkaAppBackEnd.Controllers
                 await _adminClientService.BatchMessagesFromFile(topic, formFile, separator, key, headers, partitionId);
                 return Ok($"Messages were published!");
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while batching message {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while producing batch of messages");
             }
         }
 
 
         [HttpPost("produce-message")]
-        public async Task<IActionResult> ProduceMessage(Message<string,string> message, string topic)
+        public async Task<ActionResult<string>> ProduceMessage(Message<string,string> message, string topic)
         {
             try
             {
                 await _adminClientService.ProduceMessage(message, topic);
                 return Ok("Message was produced!");
             }
-            catch (CreateTopicsException e)
+            catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while cloning topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while producing messages");
             }
         }
 
@@ -325,7 +295,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpDelete("delete-topic")]
-        public async Task<IActionResult> DeleteTopic([FromQuery] string topicName)
+        public async Task<ActionResult<string>> DeleteTopic([FromQuery] string topicName)
         {
 
             try
