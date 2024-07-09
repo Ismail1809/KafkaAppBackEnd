@@ -1,6 +1,6 @@
 ﻿namespace KafkaAppBackEnd.Models
 {
-    public class TopicRequest
+    public class CreateTopicRequest
     {
         public string? Name { get; set; }
         public short ReplicationFactor { get; set; }

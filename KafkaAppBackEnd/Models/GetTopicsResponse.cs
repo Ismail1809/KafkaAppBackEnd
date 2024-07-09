@@ -2,7 +2,7 @@
 
 namespace KafkaAppBackEnd.Models
 {
-    public class TopicResponse
+    public class GetTopicsResponse
     {
         public string? Name { get; set; }
         public Uuid? TopicId { get; set; }
