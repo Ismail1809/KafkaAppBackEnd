@@ -46,25 +46,24 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        //[HttpGet("get-topic-size")]
-        //public ActionResult<string> GetTopicSize([FromQuery] string topicName)
-        //{
-        //    //_configuration["Kafka:BootstrapServers"] = adress;
-        //    try
-        //    {
-        //        var listOfTopics = _adminClientService.GetTopicSize(topicName);
+        [HttpGet("get-topic-config")]
+        public async Task<ActionResult<List<DescribeConfigsResult>>> GetTopicConfig([FromQuery] string topicName)
+        {
+            try
+            {
+                var sizeOfTopic = await _adminClientService.GetTopicConfig(topicName);
 
-        //        if (listOfTopics == null)
-        //        {
-        //            return base.Ok("List of topics is null");
-        //        }
-        //        return base.Ok(listOfTopics);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
-        //    }
-        //}
+                if (sizeOfTopic == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(sizeOfTopic);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
 
         [HttpGet("get-consumer-groups")]
         public ActionResult<List<GetConsumerGroupsResponse>> GetConsumerGroups()

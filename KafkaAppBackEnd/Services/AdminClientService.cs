@@ -92,46 +92,20 @@ namespace KafkaAppBackEnd.Services
             return visibleData;
         }
 
-        //public async Task<string> GetTopicSize(string topicName)
-        //{
-        //    string line = "";
-        //    Process p = new Process();
-        //    ProcessStartInfo info = new ProcessStartInfo();
-        //    info.FileName = "powershell.exe";
-        //    info.RedirectStandardInput = true;
-        //    info.UseShellExecute = false;
-        //    p.StartInfo = info;
+        public async Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName)
+        {
+            var resource = new ConfigResource
+            {
+                Type = ResourceType.Topic,
+                Name = topicName // Replace with your topic name
+            };
 
-        //    p.StartInfo.RedirectStandardOutput = true;
-        //    p.Start();
+            var resourceList = new List<ConfigResource> { resource };
 
-        //    StreamWriter sw = p.StandardInput;
-        //    if (sw.BaseStream.CanWrite)
-        //    {
-        //        sw.WriteLine("winpty docker exec -it 3c71196a7b3ea653fa0fb8bbcd833e4ae7762e5eab380bceff1349cf4cdba899 /bin/sh");
-        //        sw.WriteLine("kafka-log-dirs --describe --bootstrap-server localhost:9092 --topic-list first-topic");
-        //    }
+            var configs = await _adminClient.DescribeConfigsAsync(resourceList);
 
-        //    string output = p.StandardOutput.ReadToEnd();
-        //    string error = p.StandardError.ReadToEnd();
-
-        //    // Write the redirected output to this application's window.
-        //    Console.WriteLine(output);
-
-        //    p.WaitForExit();
-
-        //    return output;
-        //    //        DockerClient client = new DockerClientConfiguration(
-        //    //new Uri("npipe://./pipe/docker_engine"))
-        //    // .CreateClient();
-
-        //    //        IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
-        //    //            new ContainersListParameters()
-        //    //            {
-        //    //                Limit = 10,
-        //    //            });
-
-        //}
+            return configs;
+        }
 
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()

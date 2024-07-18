@@ -13,6 +13,7 @@ using static System.Net.Mime.MediaTypeNames;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using AutoMapper;
+using Confluent.Kafka.Admin;
 
 namespace KafkaAppBackEnd.Controllers
 {
@@ -27,6 +28,19 @@ namespace KafkaAppBackEnd.Controllers
         {
             _clusterService = clusterService;
             _mapper = mapper;
+        }
+
+        [HttpGet("get-cluster-info")]
+        public async Task<ActionResult<List<DescribeConfigsResult>>> GetClusterInfo()
+        {
+            var clusterResult = await _clusterService.GetClusterConfig();
+
+            if (clusterResult == null)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Can't get info");
+            }
+
+            return Ok(clusterResult);
         }
 
         [HttpGet("get-connection")]

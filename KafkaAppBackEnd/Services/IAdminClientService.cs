@@ -8,7 +8,7 @@ namespace KafkaAppBackEnd.Services
     {
         IEnumerable<GetTopicsResponse> GetTopics(bool hideInternal);
         TopicDescription GetTopic(string topicName);
-        //Task<string> GetTopicSize(string topicName);
+        Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
         List<GetConsumerGroupsResponse> GetConsumerGroups();
         Task CreateTopic(CreateTopicRequest topicRequest);
         Task CloneTopic(string oldTopicName, string newTopicName);
