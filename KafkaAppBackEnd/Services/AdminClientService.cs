@@ -23,6 +23,8 @@ using System.Runtime.Serialization.Formatters.Binary;
 using Microsoft.Hadoop.Avro;
 using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
+using NuGet.Protocol.Plugins;
 
 namespace KafkaAppBackEnd.Services
 {
@@ -35,15 +37,18 @@ namespace KafkaAppBackEnd.Services
     {
         private readonly ILogger<AdminClientService> _logger;
         private IAdminClient _adminClient;
-        private readonly IProducer<string, string> _producer;
-        private readonly IConsumer<string, string> _consumer;
+        private IProducer<string, string> _producer;
+        private IConsumer<string, string> _consumer;
+        private readonly IConfiguration _configuration; 
 
-        public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, IProducer<string, string> producer, IConsumer<string, string> consumer)
+        public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, 
+            IProducer<string, string> producer, IConsumer<string, string> consumer, IConfiguration configuration)
         {
             _logger = logger;
             _adminClient = adminClient;
             _producer = producer;
             _consumer = consumer;
+            _configuration = configuration;
         }
 
         public IEnumerable<GetTopicsResponse> GetTopics(bool hideInternal)
@@ -86,6 +91,47 @@ namespace KafkaAppBackEnd.Services
 
             return visibleData;
         }
+
+        //public async Task<string> GetTopicSize(string topicName)
+        //{
+        //    string line = "";
+        //    Process p = new Process();
+        //    ProcessStartInfo info = new ProcessStartInfo();
+        //    info.FileName = "powershell.exe";
+        //    info.RedirectStandardInput = true;
+        //    info.UseShellExecute = false;
+        //    p.StartInfo = info;
+
+        //    p.StartInfo.RedirectStandardOutput = true;
+        //    p.Start();
+
+        //    StreamWriter sw = p.StandardInput;
+        //    if (sw.BaseStream.CanWrite)
+        //    {
+        //        sw.WriteLine("winpty docker exec -it 3c71196a7b3ea653fa0fb8bbcd833e4ae7762e5eab380bceff1349cf4cdba899 /bin/sh");
+        //        sw.WriteLine("kafka-log-dirs --describe --bootstrap-server localhost:9092 --topic-list first-topic");
+        //    }
+
+        //    string output = p.StandardOutput.ReadToEnd();
+        //    string error = p.StandardError.ReadToEnd();
+
+        //    // Write the redirected output to this application's window.
+        //    Console.WriteLine(output);
+
+        //    p.WaitForExit();
+
+        //    return output;
+        //    //        DockerClient client = new DockerClientConfiguration(
+        //    //new Uri("npipe://./pipe/docker_engine"))
+        //    // .CreateClient();
+
+        //    //        IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
+        //    //            new ContainersListParameters()
+        //    //            {
+        //    //                Limit = 10,
+        //    //            });
+
+        //}
 
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()
@@ -151,8 +197,11 @@ namespace KafkaAppBackEnd.Services
 
         public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
         {
+            //Error with reading from first time
+            // increase max poll???
+
             _consumer.Subscribe(topic);
-            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(5));
+            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
 
             if (consumeResult == null) 
             {
@@ -181,7 +230,7 @@ namespace KafkaAppBackEnd.Services
 
             while (true)
             {
-                consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+                consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
                 if (consumeResult is null)
                 {
                     break;
@@ -208,7 +257,7 @@ namespace KafkaAppBackEnd.Services
             List<TopicPartition> topicPartitions = new List<TopicPartition>();
 
             _consumer.Subscribe(topic);
-            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(5));
+            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
 
             var topicData = GetTopic(topic).Partitions;
 
@@ -220,7 +269,7 @@ namespace KafkaAppBackEnd.Services
             int coveredPartitions = 0;
             while (startOffset < (pageNumber - 1) * pageSize + pageSize * topicData.Count)
             {
-                consumeResult = _consumer.Consume(TimeSpan.FromSeconds(1));
+                consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
 
                 if (consumeResult == null)
                 {
@@ -401,7 +450,7 @@ namespace KafkaAppBackEnd.Services
                 // Consume Avro messages
                 for (int i = 0; i < 10; i++)
                 {
-                    var avroMessage = avroConsumer.Consume(TimeSpan.FromSeconds(1));
+                    var avroMessage = avroConsumer.Consume(TimeSpan.FromSeconds(30));
 
                     if (avroMessage == null)
                     {
@@ -528,6 +577,21 @@ namespace KafkaAppBackEnd.Services
         {
             var timer = Stopwatch.StartNew();
             _adminClient = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = address }).Build();
+            _consumer = new ConsumerBuilder<string, string>(new ConsumerConfig{
+                BootstrapServers = address,
+                GroupId = _configuration.GetSection("ConsumerSettings").GetSection("GroupId").Value,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnableAutoOffsetStore = false,
+                EnableAutoCommit = _configuration.GetSection("ConsumerSettings").GetSection("AutoCommit").Get<bool>(),
+                MaxPollIntervalMs = 120000,
+            }).Build();
+
+            _producer = new ProducerBuilder<string, string>(new ProducerConfig
+            {
+                BootstrapServers = address,
+                ClientId = _configuration.GetSection("ProducerSettings").GetSection("ClientId").Value
+            }).Build();
+
             timer.Stop();
             _logger.LogInformation("Time taken on " + address + ": " + timer.ElapsedMilliseconds.ToString());
 

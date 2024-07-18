@@ -7,8 +7,8 @@ namespace KafkaAppBackEnd.Services
     {
         Task<IEnumerable<Connection>> GetConnections();
         Task<Connection?> GetConnection(int id);
-        Task UpdateConnection(int id, ConnectionRequest connection);
-        Task<Connection> PostConnection(ConnectionRequest connection);
+        Task UpdateConnection(int id, UpdateConnectionRequest connection);
+        Task<Connection> PostConnection(CreateConnectionRequest connection);
         Task<IEnumerable<string?>> GetBootStrapServers();
         void CheckConnection(string address);
         void SetAddress(string address);
