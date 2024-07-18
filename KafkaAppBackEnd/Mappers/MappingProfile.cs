@@ -9,6 +9,7 @@ namespace KafkaAppBackEnd.Mappers
         public MappingProfile()
         {
             CreateMap<ConnectionRequest, Connection>();
+            CreateMap<CreateConnectionRequest, Connection>();
         }
     }
 }

@@ -24,8 +24,6 @@ using Microsoft.Hadoop.Avro;
 using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
-using Docker.DotNet;
-using Docker.DotNet.Models;
 using NuGet.Protocol.Plugins;
 
 namespace KafkaAppBackEnd.Services

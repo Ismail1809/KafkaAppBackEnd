@@ -30,7 +30,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-connection")]
-        public async Task<ActionResult<Connection>> GetConnection(int id)
+        public async Task<ActionResult<Connection>> GetConnection([FromQuery]int id)
         {
             var connection = await _clusterService.GetConnection(id);
 
@@ -57,9 +57,9 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpPut("update-connection")]
-        public async Task<ActionResult<ConnectionRequest>> UpdateConnection(int id, ConnectionRequest connection)
+        public async Task<ActionResult<ConnectionRequest>> UpdateConnection([FromBody] ConnectionRequest connection)
         {
-            var existingConnection = await _clusterService.GetConnection(id);
+            var existingConnection = await _clusterService.GetConnection(connection.Id);
 
             if (existingConnection == null || connection == null)
             {
@@ -68,7 +68,7 @@ namespace KafkaAppBackEnd.Controllers
 
             try
             {
-                await _clusterService.UpdateConnection(id, connection);
+                await _clusterService.UpdateConnection(connection.Id, connection);
                 return Ok(connection);
             }
             catch (DbUpdateConcurrencyException)
@@ -78,7 +78,7 @@ namespace KafkaAppBackEnd.Controllers
         }
        
         [HttpPost("create-connection")]
-        public async Task<ActionResult<Connection>> CreateConnection(ConnectionRequest connection)
+        public async Task<ActionResult<Connection>> CreateConnection([FromBody]CreateConnectionRequest connection)
         {
             var connections = await _clusterService.GetBootStrapServers();
 

@@ -11,6 +11,8 @@ using Microsoft.Extensions.Configuration;
 using KafkaAppBackEnd.Contracts;
 using KafkaAppBackEnd.Repositories;
 using KafkaAppBackEnd.Mappers;
+using KafkaAppBackEnd.Extensions;
+using System;
 
 
 var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
@@ -38,11 +40,23 @@ var producerConfig = new ProducerConfig
 
 var builder = WebApplication.CreateBuilder(args);
 
+var corsSettings = builder.Configuration.GetSection("CorsSettings");
+
 // NLog: Setup NLog for Dependency injection
 builder.Logging.ClearProviders();
 builder.Host.UseNLog();
 
 builder.Services.AddAutoMapper(typeof(MappingProfile));
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(corsSettings.GetSection("AllowedOrigins").Get<string[]>()) // take from appsettings.json
+              .WithMethods(corsSettings.GetSection("AllowedMethods").Get<string[]>())
+              .AllowAnyHeader();
+    });
+});
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -66,9 +80,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.ApplyMigrations();
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors();
 
 app.UseAuthorization();
 

@@ -52,7 +52,7 @@ namespace KafkaAppBackEnd.Services
             await _connectionRepository.UpdateAsync(existingConnection);
         }
 
-        public async Task<Connection> PostConnection(ConnectionRequest connection)
+        public async Task<Connection> PostConnection(CreateConnectionRequest connection)
         {
             var newConnection = await _connectionRepository.AddAsync(_mapper.Map<Connection>(connection));
 
