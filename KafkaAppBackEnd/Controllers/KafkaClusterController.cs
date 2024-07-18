@@ -73,7 +73,7 @@ namespace KafkaAppBackEnd.Controllers
         [HttpPut("update-connection")]
         public async Task<ActionResult<UpdateConnectionRequest>> UpdateConnection([FromBody] UpdateConnectionRequest connection)
         {
-            var existingConnection = await _clusterService.GetConnection(connection.Id);
+            var existingConnection = await _clusterService.GetConnection(connection.ConnectionId);
 
             if (existingConnection == null || connection == null)
             {
@@ -82,7 +82,7 @@ namespace KafkaAppBackEnd.Controllers
 
             try
             {
-                await _clusterService.UpdateConnection(connection.Id, connection);
+                await _clusterService.UpdateConnection(connection.ConnectionId, connection);
                 return Ok(connection);
             }
             catch (DbUpdateConcurrencyException)
