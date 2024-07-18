@@ -43,7 +43,7 @@ namespace KafkaAppBackEnd.Services
             return connections.Select(c => c.BootStrapServer);
         }
 
-        public async Task UpdateConnection(int id, ConnectionRequest connection)
+        public async Task UpdateConnection(int id, UpdateConnectionRequest connection)
         {
             Connection? existingConnection = await _connectionRepository.GetById(id);
 

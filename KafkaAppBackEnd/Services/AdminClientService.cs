@@ -39,13 +39,16 @@ namespace KafkaAppBackEnd.Services
         private IAdminClient _adminClient;
         private IProducer<string, string> _producer;
         private IConsumer<string, string> _consumer;
+        private readonly IConfiguration _configuration; 
 
-        public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, IProducer<string, string> producer, IConsumer<string, string> consumer)
+        public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, 
+            IProducer<string, string> producer, IConsumer<string, string> consumer, IConfiguration configuration)
         {
             _logger = logger;
             _adminClient = adminClient;
             _producer = producer;
             _consumer = consumer;
+            _configuration = configuration;
         }
 
         public IEnumerable<GetTopicsResponse> GetTopics(bool hideInternal)
@@ -89,46 +92,46 @@ namespace KafkaAppBackEnd.Services
             return visibleData;
         }
 
-        public async Task<string> GetTopicSize(string topicName)
-        {
-            string line = "";
-            Process p = new Process();
-            ProcessStartInfo info = new ProcessStartInfo();
-            info.FileName = "powershell.exe";
-            info.RedirectStandardInput = true;
-            info.UseShellExecute = false;
-            p.StartInfo = info;
+        //public async Task<string> GetTopicSize(string topicName)
+        //{
+        //    string line = "";
+        //    Process p = new Process();
+        //    ProcessStartInfo info = new ProcessStartInfo();
+        //    info.FileName = "powershell.exe";
+        //    info.RedirectStandardInput = true;
+        //    info.UseShellExecute = false;
+        //    p.StartInfo = info;
 
-            p.StartInfo.RedirectStandardOutput = true;
-            p.Start();
+        //    p.StartInfo.RedirectStandardOutput = true;
+        //    p.Start();
 
-            StreamWriter sw = p.StandardInput;
-            if (sw.BaseStream.CanWrite)
-            {
-                sw.WriteLine("winpty docker exec -it 3c71196a7b3ea653fa0fb8bbcd833e4ae7762e5eab380bceff1349cf4cdba899 /bin/sh");
-                sw.WriteLine("kafka-log-dirs --describe --bootstrap-server localhost:9092 --topic-list first-topic");
-            }
+        //    StreamWriter sw = p.StandardInput;
+        //    if (sw.BaseStream.CanWrite)
+        //    {
+        //        sw.WriteLine("winpty docker exec -it 3c71196a7b3ea653fa0fb8bbcd833e4ae7762e5eab380bceff1349cf4cdba899 /bin/sh");
+        //        sw.WriteLine("kafka-log-dirs --describe --bootstrap-server localhost:9092 --topic-list first-topic");
+        //    }
 
-            string output = p.StandardOutput.ReadToEnd();
-            string error = p.StandardError.ReadToEnd();
+        //    string output = p.StandardOutput.ReadToEnd();
+        //    string error = p.StandardError.ReadToEnd();
 
-            // Write the redirected output to this application's window.
-            Console.WriteLine(output);
+        //    // Write the redirected output to this application's window.
+        //    Console.WriteLine(output);
 
-            p.WaitForExit();
+        //    p.WaitForExit();
 
-            return output;
-            //        DockerClient client = new DockerClientConfiguration(
-            //new Uri("npipe://./pipe/docker_engine"))
-            // .CreateClient();
+        //    return output;
+        //    //        DockerClient client = new DockerClientConfiguration(
+        //    //new Uri("npipe://./pipe/docker_engine"))
+        //    // .CreateClient();
 
-            //        IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
-            //            new ContainersListParameters()
-            //            {
-            //                Limit = 10,
-            //            });
+        //    //        IList<ContainerListResponse> containers = await client.Containers.ListContainersAsync(
+        //    //            new ContainersListParameters()
+        //    //            {
+        //    //                Limit = 10,
+        //    //            });
 
-        }
+        //}
 
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()
@@ -576,17 +579,17 @@ namespace KafkaAppBackEnd.Services
             _adminClient = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = address }).Build();
             _consumer = new ConsumerBuilder<string, string>(new ConsumerConfig{
                 BootstrapServers = address,
-                GroupId = "order-reader",
+                GroupId = _configuration.GetSection("ConsumerSettings").GetSection("GroupId").Value,
                 AutoOffsetReset = AutoOffsetReset.Earliest,
                 EnableAutoOffsetStore = false,
-                EnableAutoCommit = false,
+                EnableAutoCommit = _configuration.GetSection("ConsumerSettings").GetSection("AutoCommit").Get<bool>(),
                 MaxPollIntervalMs = 120000,
             }).Build();
 
             _producer = new ProducerBuilder<string, string>(new ProducerConfig
             {
                 BootstrapServers = address,
-                ClientId = "order-producer"
+                ClientId = _configuration.GetSection("ProducerSettings").GetSection("ClientId").Value
             }).Build();
 
             timer.Stop();

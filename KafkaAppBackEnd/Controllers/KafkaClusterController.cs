@@ -57,7 +57,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpPut("update-connection")]
-        public async Task<ActionResult<ConnectionRequest>> UpdateConnection([FromBody] ConnectionRequest connection)
+        public async Task<ActionResult<UpdateConnectionRequest>> UpdateConnection([FromBody] UpdateConnectionRequest connection)
         {
             var existingConnection = await _clusterService.GetConnection(connection.Id);
 
