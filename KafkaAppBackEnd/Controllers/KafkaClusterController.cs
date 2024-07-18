@@ -94,10 +94,8 @@ namespace KafkaAppBackEnd.Controllers
         [HttpPost("create-connection")]
         public async Task<ActionResult<Connection>> CreateConnection([FromBody]CreateConnectionRequest connection)
         {
-            var connections = await _clusterService.GetBootStrapServers();
-
-            if(connections.Contains(connection.BootStrapServer)){
-                return Ok("Connection already exist!");
+            if((connection.ConnectionName == null || connection.ConnectionName == "")|| (connection.BootStrapServer == null || connection.BootStrapServer == "")){
+                return base.StatusCode((int)HttpStatusCode.BadRequest, "Either connection name or bootstrap server is empty");
             }
 
             var newConnection = await _clusterService.PostConnection(connection);
