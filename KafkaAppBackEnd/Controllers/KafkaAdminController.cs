@@ -26,13 +26,33 @@ namespace KafkaAppBackEnd.Controllers
             _adminClientService = adminClientService;
         }
 
-        [HttpGet("get-topics")]
-        public ActionResult<IEnumerable<GetTopicsResponse>> GetTopics([FromQuery] bool hideInternal)
+        [HttpGet("get-topic")]
+        public async Task<ActionResult<IEnumerable<GetTopicsResponse>>> GetTopic([FromQuery] string topicName)
         {
             //_configuration["Kafka:BootstrapServers"] = adress;
             try
             {
-                var listOfTopics = _adminClientService.GetTopics(hideInternal);
+                var topicDescription = _adminClientService.GetTopic(topicName);
+
+                if (topicDescription == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(topicDescription);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-topics")]
+        public async Task<ActionResult<IEnumerable<GetTopicsResponse>>> GetTopics([FromQuery] bool hideInternal)
+        {
+            //_configuration["Kafka:BootstrapServers"] = adress;
+            try
+            {
+                var listOfTopics = await _adminClientService.GetTopics(hideInternal);
 
                 if (listOfTopics == null)
                 {
@@ -51,7 +71,26 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var sizeOfTopic = await _adminClientService.GetTopicConfig(topicName);
+                var topicConfig = await _adminClientService.GetTopicConfig(topicName);
+
+                if (topicConfig == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(topicConfig);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-topic-size")]
+        public async Task<ActionResult<List<LogPartition>>> GetTopicSize()
+        {
+            try
+            {
+                var sizeOfTopic = await _adminClientService.GetTopicSize();
 
                 if (sizeOfTopic == null)
                 {

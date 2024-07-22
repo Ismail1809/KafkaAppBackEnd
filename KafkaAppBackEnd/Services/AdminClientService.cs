@@ -25,6 +25,11 @@ using System.Diagnostics.Metrics;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
 using NuGet.Protocol.Plugins;
+using System.Net.Sockets;
+using Docker.DotNet;
+using Docker.DotNet.Models;
+using Avro.IO;
+using Microsoft.DotNet.MSIdentity.Shared;
 
 namespace KafkaAppBackEnd.Services
 {
@@ -39,7 +44,8 @@ namespace KafkaAppBackEnd.Services
         private IAdminClient _adminClient;
         private IProducer<string, string> _producer;
         private IConsumer<string, string> _consumer;
-        private readonly IConfiguration _configuration; 
+        private readonly IConfiguration _configuration;
+        private DockerClient client;
 
         public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, 
             IProducer<string, string> producer, IConsumer<string, string> consumer, IConfiguration configuration)
@@ -49,37 +55,59 @@ namespace KafkaAppBackEnd.Services
             _producer = producer;
             _consumer = consumer;
             _configuration = configuration;
+
+            client = new DockerClientConfiguration()
+                    .CreateClient();
         }
 
-        public IEnumerable<GetTopicsResponse> GetTopics(bool hideInternal)
+        public async Task<IEnumerable<GetTopicsResponse>> GetTopics(bool hideInternal)
         {
+            var topicsPartitions = await GetTopicSize();
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
             DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
-            var visibleData = data.TopicDescriptions;
+            var visibleData = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
 
-            if (hideInternal)
-            {
-                return visibleData.Where(t => !t.IsInternal && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"))
-                    .Select(t => new GetTopicsResponse
+
+            var joinedData = visibleData.GroupJoin(
+                topicsPartitions.DefaultIfEmpty(),
+                vd => vd.Name,
+                tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")),
+                (vd, tpGroup) => new GetTopicsResponse
+                {
+                    Name = vd.Name,
+                    Error = vd.Error,
+                    IsInternal = vd.IsInternal,
+                    TopicId = vd.TopicId,
+                    ReplicationFactor = vd.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
+                    Partitions = tpGroup.Select(tp => new KafkaTopicPartition
                     {
-                        Name = t.Name,
-                        Error = t.Error,
-                        IsInternal = t.IsInternal,
-                        TopicId = t.TopicId
-                    });
-            }
-            else
-            {
-                return visibleData.Select(t => new GetTopicsResponse
+                        PartitionNumber = tp.partition.Split("-").Last(),
+                        Size = tp.size,
+                    }).ToList(),
+                });
+
+            return joinedData;
+
+            return visibleData
+                .Select(t => new GetTopicsResponse
                 {
                     Name = t.Name,
                     Error = t.Error,
                     IsInternal = t.IsInternal,
-                    Partitions = t.Partitions,
-                    TopicId = t.TopicId
+                    TopicId = t.TopicId,
+                    ReplicationFactor = t.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
+                    Partitions = topicsPartitions?
+                        .Where(tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")) == t.Name)
+                        .Select(pt => new KafkaTopicPartition
+                        {
+                            PartitionNumber = pt.partition.Split("-").Last(),
+                            Size = pt.size,
+                        }).ToList()
+                        
                 });
-            }
+            
+
         }
 
         public TopicDescription GetTopic(string topicName)
@@ -106,6 +134,56 @@ namespace KafkaAppBackEnd.Services
 
             return configs;
         }
+
+        public async Task<List<LogPartition>> GetTopicSize()
+        {
+            try
+            {
+                string? containerName = _configuration.GetSection("ContainerName").Value;
+
+                var outputstream = new MemoryStream();
+
+                var execParams = new ContainerExecCreateParameters()
+                {
+                    AttachStderr = true,
+                    AttachStdout = true,
+                    Cmd = new List<string> { "sh", "-c", $"kafka-log-dirs --describe --bootstrap-server localhost:9092" },
+                };
+
+                var exec = await client.Exec.ExecCreateContainerAsync(containerName, execParams);
+
+                var stream = await client.Exec.StartAndAttachContainerExecAsync(exec.ID, false);
+
+                await stream.CopyOutputToAsync(
+                    null,
+                    outputstream,
+                    Console.OpenStandardError(),
+                    CancellationToken.None);
+
+
+                outputstream.Seek(0, SeekOrigin.Begin);
+
+                using (var reader = new StreamReader(outputstream))
+                {
+                    var brokerId = _adminClient.GetMetadata(TimeSpan.FromSeconds(10)).OriginatingBrokerId;
+
+                    var outputString = await reader.ReadToEndAsync();
+                    var json = outputString.Split("\n")[2];
+
+                    var deserializedJson = JsonConvert.DeserializeObject<Root>(json);
+
+                    var partitions = deserializedJson.brokers.Find(b => b.broker == brokerId).logDirs.FirstOrDefault().partitions;
+
+                    return partitions;
+                }
+            }
+            catch(Exception ex)
+            {
+                return new List<LogPartition>();
+            }
+
+        }
+
 
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()

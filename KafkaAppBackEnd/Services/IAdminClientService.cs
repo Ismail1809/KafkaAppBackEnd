@@ -6,9 +6,10 @@ namespace KafkaAppBackEnd.Services
 {
     public interface IAdminClientService
     {
-        IEnumerable<GetTopicsResponse> GetTopics(bool hideInternal);
+        Task<IEnumerable<GetTopicsResponse>> GetTopics(bool hideInternal);
         TopicDescription GetTopic(string topicName);
         Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
+        Task<List<LogPartition>> GetTopicSize();
         List<GetConsumerGroupsResponse> GetConsumerGroups();
         Task CreateTopic(CreateTopicRequest topicRequest);
         Task CloneTopic(string oldTopicName, string newTopicName);
@@ -27,6 +28,6 @@ namespace KafkaAppBackEnd.Services
         Task<string> CompareSizes();
         Task ProduceRandomNumberOfMessages(int numberOfMessages, string topic);
         Task DeleteTopic(string topicName);
-        string SetAddress(string address);  
+        string SetAddress(string address);
     }
 }

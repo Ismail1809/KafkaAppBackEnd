@@ -35,7 +35,7 @@ namespace KafkaAppBackEnd.Services
                 Type = ResourceType.Broker,
             };
 
-            resource.Name = clusterInfo.Brokers[0].BrokerId.ToString();
+            resource.Name = clusterInfo.OriginatingBrokerId.ToString();
             var resultsConf = await _adminClient.DescribeConfigsAsync(new List<ConfigResource> { resource });
 
             return resultsConf;
