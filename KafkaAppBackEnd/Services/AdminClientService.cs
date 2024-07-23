@@ -69,25 +69,25 @@ namespace KafkaAppBackEnd.Services
             var visibleData = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
 
 
-            var joinedData = visibleData.GroupJoin(
-                topicsPartitions.DefaultIfEmpty(),
-                vd => vd.Name,
-                tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")),
-                (vd, tpGroup) => new GetTopicsResponse
-                {
-                    Name = vd.Name,
-                    Error = vd.Error,
-                    IsInternal = vd.IsInternal,
-                    TopicId = vd.TopicId,
-                    ReplicationFactor = vd.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
-                    Partitions = tpGroup.Select(tp => new KafkaTopicPartition
-                    {
-                        PartitionNumber = tp.partition.Split("-").Last(),
-                        Size = tp.size,
-                    }).ToList(),
-                });
+            //var joinedData = visibleData.GroupJoin(
+            //    topicsPartitions.DefaultIfEmpty(),
+            //    vd => vd.Name,
+            //    tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")),
+            //    (vd, tpGroup) => new GetTopicsResponse
+            //    {
+            //        Name = vd.Name,
+            //        Error = vd.Error,
+            //        IsInternal = vd.IsInternal,
+            //        TopicId = vd.TopicId,
+            //        ReplicationFactor = vd.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
+            //        Partitions = tpGroup.Select(tp => new KafkaTopicPartition
+            //        {
+            //            PartitionNumber = tp.partition.Split("-").Last(),
+            //            Size = tp.size,
+            //        }).ToList(),
+            //    });
 
-            return joinedData;
+            //return joinedData;
 
             return visibleData
                 .Select(t => new GetTopicsResponse
