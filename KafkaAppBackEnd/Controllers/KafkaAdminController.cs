@@ -31,7 +31,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var topicDescription = _adminClientService.GetTopic(topicName);
+                var topicDescription = await _adminClientService.GetTopicInfo(topicName);
 
                 if (topicDescription == null)
                 {

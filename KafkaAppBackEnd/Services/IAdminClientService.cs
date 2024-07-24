@@ -9,7 +9,7 @@ namespace KafkaAppBackEnd.Services
         Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal);
         TopicDescription GetTopic(string topicName);
         Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
-        Task<List<LogPartition>> GetTopicSize();
+        Task<List<LogPartition>> GetTopicSize(string? param);
         int GetTopicRecordsCount(string topicName);
         List<GetConsumerGroupsResponse> GetConsumerGroups();
         Task CreateTopic(CreateTopicRequest topicRequest);
@@ -30,6 +30,7 @@ namespace KafkaAppBackEnd.Services
         Task ProduceRandomNumberOfMessages(int numberOfMessages, string topic);
         Task DeleteTopic(string topicName);
         string SetAddress(string address);
+        Task<GetTopicResponse> GetTopicInfo(string topicName);
     }
 }
    

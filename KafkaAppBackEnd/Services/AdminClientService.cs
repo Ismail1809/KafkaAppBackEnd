@@ -60,6 +60,47 @@ namespace KafkaAppBackEnd.Services
                     .CreateClient();
         }
 
+        public async Task<GetTopicResponse> GetTopicInfo(string topicName)
+        {
+            var topicsPartitions = await GetTopicSize($"--topic-list {topicName}");
+            var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
+            var topicNames = metadata.Topics;
+            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            var visibleData = data.TopicDescriptions.First(t => t.Name == topicName);
+
+            var p = visibleData.Partitions;
+            var c = topicsPartitions.Where(x => x.partition.Substring(0, x.partition.LastIndexOf("-")) == visibleData.Name);
+
+            var joinResult = p.GroupJoin(
+                                c,
+                                vd => vd.Partition,
+                                tp => int.Parse(tp.partition.Split("-").Last()),
+                                (vd, tp) => new { vd, tp }
+                                ).SelectMany(
+                                    x => x.tp.DefaultIfEmpty(), (vd, tp) => new { vd, tp })
+                                .Select(
+                                    x => new KafkaTopicPartition()
+                                    {
+                                        PartitionNumber = x?.tp?.partition.Split("-").Last() ?? x?.vd.vd.Partition.ToString(),
+                                        Size = x?.tp?.size ?? 0
+                                    }
+                                ).ToList();
+
+            var response = new GetTopicResponse()
+            {
+                Name = visibleData.Name,
+                Error = visibleData.Error,
+                IsInternal = visibleData.IsInternal,
+                TopicId = visibleData.TopicId,
+                ReplicationFactor = visibleData.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
+                Partitions = joinResult,
+                RecordsCount = GetTopicRecordsCount(visibleData.Name)
+            };
+
+            return response;
+        }
+
+
         public TopicDescription GetTopic(string topicName)
         {
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
@@ -72,7 +113,7 @@ namespace KafkaAppBackEnd.Services
 
         public async Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal)
         {
-            var topicsPartitions = await GetTopicSize();           
+            var topicsPartitions = await GetTopicSize(null);           
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
             DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
@@ -133,7 +174,7 @@ namespace KafkaAppBackEnd.Services
             return configs;
         }
 
-        public async Task<List<LogPartition>> GetTopicSize()
+        public async Task<List<LogPartition>> GetTopicSize(string? param)
         {
             try
             {
@@ -145,7 +186,7 @@ namespace KafkaAppBackEnd.Services
                 {
                     AttachStderr = true,
                     AttachStdout = true,
-                    Cmd = new List<string> { "sh", "-c", $"kafka-log-dirs --describe --bootstrap-server localhost:9092" },
+                    Cmd = new List<string> { "sh", "-c", $"kafka-log-dirs --describe --bootstrap-server localhost:9092 {param}"},
                 };
 
                 var exec = await client.Exec.ExecCreateContainerAsync(containerName, execParams);
