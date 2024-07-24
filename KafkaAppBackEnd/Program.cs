@@ -17,6 +17,9 @@ using System.Management.Automation.Runspaces;
 using System.Management.Automation;
 using System.Text;
 using System.Net.Security;
+using KafkaAppBackEnd.Models;
+using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
 
 var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -55,7 +58,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(corsSettings.GetSection("AllowedOrigins").Get<string[]>()) // take from appsettings.json
+        policy.WithOrigins(corsSettings.GetSection("AllowedOrigins").Get<string[]>())
               .WithMethods(corsSettings.GetSection("AllowedMethods").Get<string[]>())
               .AllowAnyHeader();
     });
@@ -75,10 +78,18 @@ builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddScoped<IClusterService, ClusterService>();
 builder.Services.AddSingleton(new ProducerBuilder<string, string>(producerConfig).Build());
 builder.Services.AddSingleton(new ConsumerBuilder<string, string>(consumerConfig).Build());
+builder.Services.AddHttpLogging((logging) =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestQuery | HttpLoggingFields.ResponseBody | HttpLoggingFields.RequestHeaders | HttpLoggingFields.ResponseHeaders| HttpLoggingFields.ResponseStatusCode;;
+    logging.MediaTypeOptions.AddText("application/json");
+    logging.RequestBodyLogLimit = 4096;
+    logging.ResponseBodyLogLimit = 4096;
+    logging.CombineLogs = true;
+
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -87,6 +98,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseHttpLogging();
 
 app.UseCors();
 

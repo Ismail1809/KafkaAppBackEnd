@@ -27,9 +27,8 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topic")]
-        public async Task<ActionResult<IEnumerable<GetTopicsResponse>>> GetTopic([FromQuery] string topicName)
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopic([FromQuery] string topicName)
         {
-            //_configuration["Kafka:BootstrapServers"] = adress;
             try
             {
                 var topicDescription = _adminClientService.GetTopic(topicName);
@@ -47,9 +46,8 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topics")]
-        public async Task<ActionResult<IEnumerable<GetTopicsResponse>>> GetTopics([FromQuery] bool hideInternal)
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopics([FromQuery] bool hideInternal)
         {
-            //_configuration["Kafka:BootstrapServers"] = adress;
             try
             {
                 var listOfTopics = await _adminClientService.GetTopics(hideInternal);
@@ -85,18 +83,18 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        [HttpGet("get-topic-size")]
-        public async Task<ActionResult<List<LogPartition>>> GetTopicSize()
+        [HttpGet("get-topic-records-count")]
+        public async Task<ActionResult<long>> GetTopicRecordsCount([FromQuery] string topicName)
         {
             try
             {
-                var sizeOfTopic = await _adminClientService.GetTopicSize();
+                var recordsCount = _adminClientService.GetTopicRecordsCount(topicName);
 
-                if (sizeOfTopic == null)
+                if (recordsCount == null)
                 {
                     return base.Ok("List of topics is null");
                 }
-                return base.Ok(sizeOfTopic);
+                return base.Ok(recordsCount);
             }
             catch (Exception ex)
             {

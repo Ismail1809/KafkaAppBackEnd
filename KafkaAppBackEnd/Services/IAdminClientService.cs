@@ -6,10 +6,11 @@ namespace KafkaAppBackEnd.Services
 {
     public interface IAdminClientService
     {
-        Task<IEnumerable<GetTopicsResponse>> GetTopics(bool hideInternal);
+        Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal);
         TopicDescription GetTopic(string topicName);
         Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
         Task<List<LogPartition>> GetTopicSize();
+        long GetTopicRecordsCount(string topicName);
         List<GetConsumerGroupsResponse> GetConsumerGroups();
         Task CreateTopic(CreateTopicRequest topicRequest);
         Task CloneTopic(string oldTopicName, string newTopicName);
@@ -31,3 +32,4 @@ namespace KafkaAppBackEnd.Services
         string SetAddress(string address);
     }
 }
+   

@@ -60,56 +60,6 @@ namespace KafkaAppBackEnd.Services
                     .CreateClient();
         }
 
-        public async Task<IEnumerable<GetTopicsResponse>> GetTopics(bool hideInternal)
-        {
-            var topicsPartitions = await GetTopicSize();
-            var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
-            var topicNames = metadata.Topics;
-            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
-            var visibleData = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
-
-
-            //var joinedData = visibleData.GroupJoin(
-            //    topicsPartitions.DefaultIfEmpty(),
-            //    vd => vd.Name,
-            //    tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")),
-            //    (vd, tpGroup) => new GetTopicsResponse
-            //    {
-            //        Name = vd.Name,
-            //        Error = vd.Error,
-            //        IsInternal = vd.IsInternal,
-            //        TopicId = vd.TopicId,
-            //        ReplicationFactor = vd.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
-            //        Partitions = tpGroup.Select(tp => new KafkaTopicPartition
-            //        {
-            //            PartitionNumber = tp.partition.Split("-").Last(),
-            //            Size = tp.size,
-            //        }).ToList(),
-            //    });
-
-            //return joinedData;
-
-            return visibleData
-                .Select(t => new GetTopicsResponse
-                {
-                    Name = t.Name,
-                    Error = t.Error,
-                    IsInternal = t.IsInternal,
-                    TopicId = t.TopicId,
-                    ReplicationFactor = t.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
-                    Partitions = topicsPartitions?
-                        .Where(tp => tp.partition.Substring(0, tp.partition.LastIndexOf("-")) == t.Name)
-                        .Select(pt => new KafkaTopicPartition
-                        {
-                            PartitionNumber = pt.partition.Split("-").Last(),
-                            Size = pt.size,
-                        }).ToList()
-                        
-                });
-            
-
-        }
-
         public TopicDescription GetTopic(string topicName)
         {
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
@@ -120,12 +70,59 @@ namespace KafkaAppBackEnd.Services
             return visibleData;
         }
 
+        public async Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal)
+        {
+            var topicsPartitions = await GetTopicSize();
+            var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
+            var topicNames = metadata.Topics;
+            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            var topics = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
+
+            var result = new List<GetTopicResponse>();
+
+            foreach (var topic in topics) {
+                var p = topic.Partitions;
+                var c = topicsPartitions.Where(x => x.partition.Substring(0, x.partition.LastIndexOf("-")) == topic.Name);
+
+                var joinResult = p.GroupJoin(
+                                    c,
+                                    vd => vd.Partition,
+                                    tp => int.Parse(tp.partition.Split("-").Last()),
+                                    (vd, tp) => new { vd, tp }
+                                    ).SelectMany(
+                                        x => x.tp.DefaultIfEmpty(), (vd, tp) => new { vd, tp })
+                                    .Select(
+                                        x => new KafkaTopicPartition()
+                                        {
+                                            PartitionNumber = x?.tp?.partition.Split("-").Last() ?? x?.vd.vd.Partition.ToString(),
+                                            Size = x?.tp?.size ?? 0
+                                        }
+                                    ).ToList();
+
+                var response = new GetTopicResponse() 
+                {
+                    Name = topic.Name,
+                    Error = topic.Error,
+                    IsInternal = topic.IsInternal,
+                    TopicId = topic.TopicId,
+                    ReplicationFactor = topic.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
+                    Partitions = joinResult
+                };
+
+                result.Add(response);
+            }
+
+            return result;
+
+
+        }
+
         public async Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName)
         {
             var resource = new ConfigResource
             {
                 Type = ResourceType.Topic,
-                Name = topicName // Replace with your topic name
+                Name = topicName 
             };
 
             var resourceList = new List<ConfigResource> { resource };
@@ -184,7 +181,21 @@ namespace KafkaAppBackEnd.Services
 
         }
 
+        public long GetTopicRecordsCount(string topicName)
+        {
+            var topicData = GetTopic(topicName).Partitions;
 
+            WatermarkOffsets offsets;
+            long lastOffset = 0;
+
+            foreach (var topicPartition in topicData)
+            {
+                offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
+                lastOffset += offsets.High;
+            }
+
+            return lastOffset;
+        }
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()
         {
@@ -253,7 +264,7 @@ namespace KafkaAppBackEnd.Services
             // increase max poll???
 
             _consumer.Subscribe(topic);
-            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
+            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(5));
 
             if (consumeResult == null) 
             {
@@ -287,7 +298,6 @@ namespace KafkaAppBackEnd.Services
                 {
                     break;
                 }
-                Console.WriteLine(consumeResult.Message.Value);
                 messages.Add(consumeResult);
                 topicPartitions.Add(consumeResult.TopicPartition);
             }
@@ -334,11 +344,9 @@ namespace KafkaAppBackEnd.Services
                 }
                 else if (consumeResult.Offset.Value < (pageNumber - 1) * pageSize + pageSize)
                 {
-                    Console.WriteLine(consumeResult.Message.Value);
                     messages.Add(consumeResult);
                     topicPartitions.Add(consumeResult.TopicPartition);
                     startOffset++;
-                    Console.WriteLine($"{consumeResult.TopicPartitionOffset}");
                 }
             }
 
@@ -527,9 +535,6 @@ namespace KafkaAppBackEnd.Services
                     avroConsumer.Seek(new TopicPartitionOffset(tp.Topic, tp.Partition, Offset.Beginning));
                 }
 
-                Console.WriteLine("Average JSON message size: " + jsonSizes.Average());
-                Console.WriteLine("Average Avro message size: " + string.Join(", ", avroSizes));
-
                 return avroMessages;
             }
         }
@@ -587,8 +592,6 @@ namespace KafkaAppBackEnd.Services
             while (reader.Peek() >= 0) { 
                     result.Append(await reader.ReadLineAsync() + " ");
             }
-
-            Console.WriteLine(result.ToString());
 
             listOfMessages = result.ToString().Split(separator).ToList();
 

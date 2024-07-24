@@ -9,12 +9,10 @@ namespace KafkaAppBackEnd.Repositories
 {
     public class ConnectionRepository: IConnectionRepository
     {
-        //private readonly ILogger<ConnectionRepository> _logger;
         private readonly DatabaseContext _context;
 
         public ConnectionRepository(DatabaseContext context)
         {
-            //_logger = logger;
             _context = context;
         }
         public async Task<IEnumerable<Connection>> GetAllAsync()
