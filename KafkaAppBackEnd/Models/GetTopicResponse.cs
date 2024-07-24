@@ -10,6 +10,7 @@ namespace KafkaAppBackEnd.Models
         public Error? Error { get; set; }
         public bool? IsInternal { get; set; }
         public int ReplicationFactor { get; internal set; }
+        public int RecordsCount { get; set; }
     }
 
     public class KafkaTopicPartition

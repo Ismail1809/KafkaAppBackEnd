@@ -72,7 +72,7 @@ namespace KafkaAppBackEnd.Services
 
         public async Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal)
         {
-            var topicsPartitions = await GetTopicSize();
+            var topicsPartitions = await GetTopicSize();           
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
             DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
@@ -106,7 +106,8 @@ namespace KafkaAppBackEnd.Services
                     IsInternal = topic.IsInternal,
                     TopicId = topic.TopicId,
                     ReplicationFactor = topic.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
-                    Partitions = joinResult
+                    Partitions = joinResult,
+                    RecordsCount = GetTopicRecordsCount(topic.Name)
                 };
 
                 result.Add(response);
@@ -181,7 +182,7 @@ namespace KafkaAppBackEnd.Services
 
         }
 
-        public long GetTopicRecordsCount(string topicName)
+        public int GetTopicRecordsCount(string topicName)
         {
             var topicData = GetTopic(topicName).Partitions;
 
@@ -194,7 +195,7 @@ namespace KafkaAppBackEnd.Services
                 lastOffset += offsets.High;
             }
 
-            return lastOffset;
+            return Convert.ToInt32(lastOffset);
         }
 
         public List<GetConsumerGroupsResponse> GetConsumerGroups()
