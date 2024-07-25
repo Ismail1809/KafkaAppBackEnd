@@ -13,6 +13,7 @@ namespace KafkaAppBackEnd.Services
         int GetTopicRecordsCount(string topicName);
         List<GetConsumerGroupsResponse> GetConsumerGroups();
         Task CreateTopic(CreateTopicRequest topicRequest);
+        Task CreateTopics(List<CreateTopicRequest> topicsRequests);
         Task CloneTopic(string oldTopicName, string newTopicName);
         Task RenameTopicAsync(string oldTopicName, string newTopicName);
         Task ProduceMessage(Message<string,string> message, string topic);

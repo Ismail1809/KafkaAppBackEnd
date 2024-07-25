@@ -138,6 +138,21 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpPost("create-topics")]
+        public async Task<ActionResult<string>> CreateTopics([FromBody] List<CreateTopicRequest> topicsRequests)
+        {
+
+            try
+            {
+                await _adminClientService.CreateTopics(topicsRequests);
+                return Ok("Topic was successfully created!");
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while creating topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+
         [HttpPut("rename-topic")]
         public async Task<ActionResult<string>> RenameTopic(string oldTopicName, string newTopicName)
         {

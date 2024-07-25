@@ -272,6 +272,16 @@ namespace KafkaAppBackEnd.Services
             }]);
         }
 
+        public async Task CreateTopics(List<CreateTopicRequest> topicsRequest)
+        {
+            await _adminClient.CreateTopicsAsync(topicsRequest.Select(topicRequest => new TopicSpecification
+            {
+                Name = topicRequest.Name,
+                ReplicationFactor = topicRequest.ReplicationFactor,
+                NumPartitions = topicRequest.Partitions
+            }));
+        }
+
         public async Task RenameTopicAsync(string oldTopicName, string newTopicName)
         {
             await CloneTopic(oldTopicName, newTopicName);
