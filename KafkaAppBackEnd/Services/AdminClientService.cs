@@ -260,7 +260,7 @@ namespace KafkaAppBackEnd.Services
             //    });
             //}
 
-            var groupsInfo = await _adminClient.DescribeConsumerGroupsAsync(groups.Select(g => g.Group));
+            var groupsInfo = await _adminClient.DescribeConsumerGroupsAsync(groups.Where(g => g.Group != "schema-registry").Select(g => g.Group));
 
             return groupsInfo;
         }
