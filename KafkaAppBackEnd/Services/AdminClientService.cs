@@ -239,27 +239,30 @@ namespace KafkaAppBackEnd.Services
             return Convert.ToInt32(lastOffset);
         }
 
-        public List<GetConsumerGroupsResponse> GetConsumerGroups()
+        public async Task<DescribeConsumerGroupsResult> GetConsumerGroups()
         {
             List<GetConsumerGroupsResponse> consumerGroups = new List<GetConsumerGroupsResponse>();
             var groups = _adminClient.ListGroups(TimeSpan.FromSeconds(10));
 
-            foreach (var g in groups)
-            {
-                consumerGroups.Add(new GetConsumerGroupsResponse
-                {
-                    Group = g.Group,
-                    Error = g.Error,
-                    State = g.State,
-                    BrokerId = g.Broker.BrokerId,
-                    Host = g.Broker.Host,
-                    Port = g.Broker.Port,
-                    ProtocolType = g.ProtocolType,
-                    Protocol = g.Protocol
-                });
-            }
+            //foreach (var g in groups)
+            //{
+            //    consumerGroups.Add(new GetConsumerGroupsResponse
+            //    {
+            //        Group = g.Group,
+            //        Members = g.Members.Count(),
+            //        Error = g.Error,
+            //        State = g.State,
+            //        BrokerId = g.Broker.BrokerId,
+            //        Host = g.Broker.Host,
+            //        Port = g.Broker.Port,
+            //        ProtocolType = g.ProtocolType,
+            //        Protocol = g.Protocol
+            //    });
+            //}
 
-            return consumerGroups;
+            var groupsInfo = await _adminClient.DescribeConsumerGroupsAsync(groups.Select(g => g.Group));
+
+            return groupsInfo;
         }
 
         public async Task CreateTopic(CreateTopicRequest topicRequest)

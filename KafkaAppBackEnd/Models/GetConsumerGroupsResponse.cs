@@ -5,6 +5,7 @@ namespace KafkaAppBackEnd.Models
     public class GetConsumerGroupsResponse
     {
         public string? Group { get; set; }
+        public int? Members { get; set; }
         public Error? Error { get; set; }
         public string? State { get; set; }
         public int? BrokerId { get; set; }

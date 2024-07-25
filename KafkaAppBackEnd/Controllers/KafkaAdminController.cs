@@ -84,7 +84,7 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topic-records-count")]
-        public async Task<ActionResult<long>> GetTopicRecordsCount([FromQuery] string topicName)
+        public ActionResult<long> GetTopicRecordsCount([FromQuery] string topicName)
         {
             try
             {
@@ -103,11 +103,11 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-consumer-groups")]
-        public ActionResult<List<GetConsumerGroupsResponse>> GetConsumerGroups()
+        public async Task<ActionResult<List<GetConsumerGroupsResponse>>> GetConsumerGroups()
         {
             try
             {
-                var consumerGroup = _adminClientService.GetConsumerGroups();
+                var consumerGroup = await _adminClientService.GetConsumerGroups();
 
                 if (consumerGroup == null)
                 {
