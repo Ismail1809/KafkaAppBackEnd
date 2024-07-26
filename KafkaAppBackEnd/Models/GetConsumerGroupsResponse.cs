@@ -11,7 +11,7 @@ namespace KafkaAppBackEnd.Models
         public int? BrokerId { get; set; }
         public string? Host { get; set; }
         public int? Port { get; set; }
-        public string? ProtocolType { get; set; }
-        public string? Protocol { get; set; }
+        public List<string>? AssignedTopics { get; set; }
+        public long? OverallLag { get; set; }
     }
 }

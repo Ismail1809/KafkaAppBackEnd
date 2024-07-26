@@ -239,30 +239,60 @@ namespace KafkaAppBackEnd.Services
             return Convert.ToInt32(lastOffset);
         }
 
-        public async Task<DescribeConsumerGroupsResult> GetConsumerGroups()
+        public async Task<List<GetConsumerGroupsResponse>> GetConsumerGroups()
         {
             List<GetConsumerGroupsResponse> consumerGroups = new List<GetConsumerGroupsResponse>();
             var groups = _adminClient.ListGroups(TimeSpan.FromSeconds(10));
 
-            //foreach (var g in groups)
-            //{
-            //    consumerGroups.Add(new GetConsumerGroupsResponse
-            //    {
-            //        Group = g.Group,
-            //        Members = g.Members.Count(),
-            //        Error = g.Error,
-            //        State = g.State,
-            //        BrokerId = g.Broker.BrokerId,
-            //        Host = g.Broker.Host,
-            //        Port = g.Broker.Port,
-            //        ProtocolType = g.ProtocolType,
-            //        Protocol = g.Protocol
-            //    });
-            //}
-
             var groupsInfo = await _adminClient.DescribeConsumerGroupsAsync(groups.Where(g => g.Group != "schema-registry").Select(g => g.Group));
 
-            return groupsInfo;
+            var groupsInfoLIst = groupsInfo.ConsumerGroupDescriptions;
+
+            foreach (var g in groupsInfoLIst)
+            {
+                var overallLag = GetOverAllLag(g.Members);
+
+                List<string> distinctTopicsList = new List<string>();
+
+                g.Members.ForEach(cg => cg.Assignment.TopicPartitions.Select(tp => tp.Topic).Distinct().ToList().ForEach(topic => distinctTopicsList.Add(topic)));
+
+                consumerGroups.Add(new GetConsumerGroupsResponse
+                {
+                    Group = g.GroupId,
+                    Members = g.Members.Count(),
+                    Error = g.Error,
+                    State = Enum.GetName(typeof(ConsumerGroupState), g.State),
+                    BrokerId = g.Coordinator.Id,
+                    Host = g.Coordinator.Host,
+                    Port = g.Coordinator.Port,
+                    AssignedTopics = distinctTopicsList, 
+                    OverallLag = overallLag
+                });
+            }
+
+            return consumerGroups;
+        }
+
+        public long GetOverAllLag(List<MemberDescription> members)
+        {
+            var overallLag = 0L;
+            foreach (var member in members)
+            {
+                _consumer.Assign(member.Assignment.TopicPartitions);
+
+                List<TopicPartitionOffset> tpos = _consumer.Committed(TimeSpan.FromSeconds(40));
+                foreach (TopicPartitionOffset tpo in tpos)
+                {
+                    WatermarkOffsets w = _consumer.QueryWatermarkOffsets(tpo.TopicPartition, TimeSpan.FromSeconds(40));
+                    long commited = tpo.Offset.Value;
+                    long log_end_offset = w.High.Value;
+                    long lag = log_end_offset - commited;
+
+                    overallLag += lag;
+                }
+            }
+
+            return overallLag;
         }
 
         public async Task CreateTopic(CreateTopicRequest topicRequest)
@@ -693,7 +723,6 @@ namespace KafkaAppBackEnd.Services
                 AutoOffsetReset = AutoOffsetReset.Earliest,
                 EnableAutoOffsetStore = false,
                 EnableAutoCommit = _configuration.GetSection("ConsumerSettings").GetSection("AutoCommit").Get<bool>(),
-                MaxPollIntervalMs = 120000,
             }).Build();
 
             _producer = new ProducerBuilder<string, string>(new ProducerConfig
