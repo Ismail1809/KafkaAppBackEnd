@@ -12,6 +12,7 @@ namespace KafkaAppBackEnd.Services
         Task<List<LogPartition>> GetTopicSize(string? param);
         int GetTopicRecordsCount(string topicName);
         Task<List<GetConsumerGroupsResponse>> GetConsumerGroups();
+        long GetOverAllLag(List<MemberDescription> members);
         Task CreateTopic(CreateTopicRequest topicRequest);
         Task CreateTopics(List<CreateTopicRequest> topicsRequests);
         Task CloneTopic(string oldTopicName, string newTopicName);

@@ -34,8 +34,10 @@ var consumerConfig = new ConsumerConfig
     BootstrapServers = "localhost: 9092",
     GroupId = "order-reader",
     AutoOffsetReset = AutoOffsetReset.Earliest,
-    EnableAutoOffsetStore = false,
-    EnableAutoCommit = false
+    EnableAutoOffsetStore = true,
+    EnableAutoCommit = true,
+    SessionTimeoutMs = 30000,
+    HeartbeatIntervalMs = 3000
 };
 
 var producerConfig = new ProducerConfig

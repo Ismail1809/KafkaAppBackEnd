@@ -209,7 +209,7 @@ namespace KafkaAppBackEnd.Controllers
             }
             catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e}");
             }
         }
 

@@ -58,6 +58,8 @@ namespace KafkaAppBackEnd.Services
 
             client = new DockerClientConfiguration()
                     .CreateClient();
+
+            _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
         }
 
         public async Task<GetTopicResponse> GetTopicInfo(string topicName)
@@ -250,7 +252,7 @@ namespace KafkaAppBackEnd.Services
 
             foreach (var g in groupsInfoLIst)
             {
-                var overallLag = GetOverAllLag(g.Members);
+                var overallLag = g.GroupId.Contains("ConfluentTelemetryReporterSampler") ? 0 : GetOverAllLag(g.Members);
 
                 List<string> distinctTopicsList = new List<string>();
 
