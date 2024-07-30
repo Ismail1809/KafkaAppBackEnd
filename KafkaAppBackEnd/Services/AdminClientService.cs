@@ -30,6 +30,8 @@ using Docker.DotNet;
 using Docker.DotNet.Models;
 using Avro.IO;
 using Microsoft.DotNet.MSIdentity.Shared;
+using Microsoft.CodeAnalysis;
+using System.Collections.Concurrent;
 
 namespace KafkaAppBackEnd.Services
 {
@@ -241,6 +243,20 @@ namespace KafkaAppBackEnd.Services
             return Convert.ToInt32(lastOffset);
         }
 
+        public bool GetPartitionRecordsCount(string topicName, int partition, long offset)
+        {
+            WatermarkOffsets offsets;
+
+            offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, partition), TimeSpan.FromSeconds(1));
+            var lastOffset = offsets.High;
+
+            if (offset < lastOffset)
+            {
+                return true;
+            }
+            return false;
+        }
+
         public async Task<List<GetConsumerGroupsResponse>> GetConsumerGroups()
         {
             List<GetConsumerGroupsResponse> consumerGroups = new List<GetConsumerGroupsResponse>();
@@ -345,56 +361,70 @@ namespace KafkaAppBackEnd.Services
             await _producer.ProduceAsync(topic, message);
         }
 
-        public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
+        public List<ConsumeResult<string, string>> GetMessagesFromBeginning(string topic)
         {
-            //Error with reading from first time
-            // increase max poll???
+            var topicData = GetTopic(topic);
+            var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), new Offset(0))).ToList();
 
-            _consumer.Subscribe(topic);
-            var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(5));
+            _consumer.Assign(partitions);
 
-            if (consumeResult == null) 
-            {
-                return new List<ConsumeResult<string, string>>();
-            }
-
-            var offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(consumeResult.Topic, consumeResult.Partition), TimeSpan.FromSeconds(1));
-
-            var lastOffset = offsets.High - 1;
-
-            if (lastOffset < x)
-            {
-                return new List<ConsumeResult<string, string>>();
-            }
-
-            var topicData = GetTopic(topic).Partitions;
-
-            foreach (var topicPartition in topicData)
-            {
-                _consumer.Seek(new TopicPartitionOffset(consumeResult.Topic, topicPartition.Partition, x));
-            }
-
-
-            List<TopicPartition> topicPartitions = new List<TopicPartition>();
             List<ConsumeResult<string, string>> messages = new List<ConsumeResult<string, string>>();
 
             while (true)
             {
-                consumeResult = _consumer.Consume(TimeSpan.FromSeconds(30));
-                if (consumeResult is null)
+                try
                 {
-                    break;
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
+
+                    if (consumeResult == null)
+                    {
+                        return messages;
+                    }
+
+                    messages.Add(consumeResult);
                 }
-                messages.Add(consumeResult);
-                topicPartitions.Add(consumeResult.TopicPartition);
-            }
+                catch (ConsumeException ex) when (ex.Error.Code == ErrorCode.Local_MaxPollExceeded)
+                {
+                    _consumer.Subscribe(topic);
 
-            foreach (var tp in topicPartitions.ToHashSet())
+                    var consumeResult = _consumer.Consume();
+
+                    messages.Add(consumeResult);
+                }
+            }
+        }
+
+        public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
+        {
+            var topicData = GetTopic(topic);
+            var partitions = topicData.Partitions.Where(partition => GetPartitionRecordsCount(topic, partition.Partition, x)).Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), x)).ToList();
+
+            _consumer.Assign(partitions);
+
+            List<ConsumeResult<string, string>> messages = new List<ConsumeResult<string, string>>();
+
+            while (true)
             {
-                _consumer.Seek(new TopicPartitionOffset(tp.Topic, tp.Partition, Offset.Beginning));
-            }
+                try
+                {
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
-            return messages;
+                    if (consumeResult == null)
+                    {
+                        return messages;
+                    }
+
+                    messages.Add(consumeResult);
+                }
+                catch (ConsumeException ex) when (ex.Error.Code == ErrorCode.Local_MaxPollExceeded)
+                {
+                    _consumer.Subscribe(topic);
+
+                    var consumeResult = _consumer.Consume();
+
+                    messages.Add(consumeResult);
+                }
+            }
         }
 
         public List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber)

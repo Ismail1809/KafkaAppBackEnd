@@ -199,6 +199,20 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpGet("consume-messages-from-beginning")]
+        public ActionResult<List<ConsumeResult<string, string>>> ConsumeMessagesFromBeginning([FromQuery] string topicName)
+        {
+            try
+            {
+                var messages = _adminClientService.GetMessagesFromBeginning(topicName);
+                return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
+            }
+            catch (Exception e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e}");
+            }
+        }
+
         [HttpGet("consume-messages")]
         public async Task<ActionResult<List<ConsumeResult<string, string>>>> ConsumeMessages([FromQuery]string topicName, int offset)
         {
