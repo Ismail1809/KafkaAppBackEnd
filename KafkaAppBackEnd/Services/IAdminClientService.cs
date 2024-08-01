@@ -7,6 +7,7 @@ namespace KafkaAppBackEnd.Services
     public interface IAdminClientService
     {
         Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal);
+        Task<IEnumerable<GetTopicSizeResponse>> GetTopicsSizeInfo(bool hideInternal);
         TopicDescription GetTopic(string topicName);
         Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
         Task<List<LogPartition>> GetTopicSize(string? param);
@@ -17,12 +18,12 @@ namespace KafkaAppBackEnd.Services
         Task CreateTopics(List<CreateTopicRequest> topicsRequests);
         Task CloneTopic(string oldTopicName, string newTopicName);
         Task RenameTopicAsync(string oldTopicName, string newTopicName);
-        Task ProduceMessage(Message<string,string> message, string topic);
+        Task ProduceMessage(string key, string value, Headers headers, string topic);
         List<ConsumeResult<string, string>> GetMessagesFromBeginning(string topic);
         List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x);
         List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber);
-        IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, SearchOption choice);
-        IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, SearchOption choice);
+        IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, int choice);
+        IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, int choice);
         IEnumerable<ConsumeResult<string, string>> SearchByTimeStamps(string topic, DateTime? time1, DateTime? time2);
         IEnumerable<ConsumeResult<string, string>> SearchByPartitions(string topic, int partitions);
         Task<List<string>> ProduceAvroMessage(string topic);

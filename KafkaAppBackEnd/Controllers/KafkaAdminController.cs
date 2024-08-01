@@ -64,6 +64,25 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpGet("get-topics-size-info")]
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopicsSizeInfo([FromQuery] bool hideInternal)
+        {
+            try
+            {
+                var listOfTopics = await _adminClientService.GetTopicsSizeInfo(hideInternal);
+
+                if (listOfTopics == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(listOfTopics);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
         [HttpGet("get-topic-config")]
         public async Task<ActionResult<List<DescribeConfigsResult>>> GetTopicConfig([FromQuery] string topicName)
         {
@@ -241,12 +260,12 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        [HttpGet("search-by-keys")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, SearchOption choice)
+        [HttpPost("search-by-keys")]
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromBody] SearchByKeysRequestcs request)
         {
             try
             {
-                var messages = _adminClientService.SearchByKeys(topic, listOfKeys, choice);
+                var messages = _adminClientService.SearchByKeys(request.Topic, request.ListOfKeys, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)
@@ -255,12 +274,12 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        [HttpGet("search-by-headers")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, SearchOption choice)
+        [HttpPost("search-by-headers")]
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromBody] SearchByHeadersRequest request)
         {
             try
             {
-                var messages = _adminClientService.SearchByHeaders(topic, listOfStrings, choice);
+                var messages = _adminClientService.SearchByHeaders(request.Topic, request.ListOfKeys, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value, HeaderValue = m.Message.Headers.ToList().Select(h => Encoding.UTF8.GetString(h.GetValueBytes())).FirstOrDefault()}));
             }
             catch (Exception e)
@@ -349,11 +368,11 @@ namespace KafkaAppBackEnd.Controllers
 
 
         [HttpPost("produce-message")]
-        public async Task<ActionResult<string>> ProduceMessage(Message<string,string> message, string topic)
+        public async Task<ActionResult<string>> ProduceMessage([FromBody] MessageRequest request)
         {
             try
             {
-                await _adminClientService.ProduceMessage(message, topic);
+                await _adminClientService.ProduceMessage(request.Key, request.Value, request.Headers, request.Topic);
                 return Ok("Message was produced!");
             }
             catch (Exception e)

@@ -37,7 +37,8 @@ var consumerConfig = new ConsumerConfig
     EnableAutoOffsetStore = true,
     EnableAutoCommit = true,
     SessionTimeoutMs = 30000,
-    HeartbeatIntervalMs = 3000
+    HeartbeatIntervalMs = 3000,
+    EnablePartitionEof = true,
 };
 
 var producerConfig = new ProducerConfig
