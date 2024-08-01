@@ -279,7 +279,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.SearchByHeaders(request.Topic, request.ListOfKeys, request.SearchOption);
+                var messages = _adminClientService.SearchByHeaders(request.Topic, request.ListOfStrings, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value, HeaderValue = m.Message.Headers.ToList().Select(h => Encoding.UTF8.GetString(h.GetValueBytes())).FirstOrDefault()}));
             }
             catch (Exception e)
@@ -372,7 +372,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                await _adminClientService.ProduceMessage(request.Key, request.Value, request.Headers, request.Topic);
+                await _adminClientService.ProduceMessageWithCustomHeaders(request.Key, request.Value, request.Headers, request.Topic);
                 return Ok("Message was produced!");
             }
             catch (Exception e)

@@ -19,6 +19,7 @@ namespace KafkaAppBackEnd.Services
         Task CloneTopic(string oldTopicName, string newTopicName);
         Task RenameTopicAsync(string oldTopicName, string newTopicName);
         Task ProduceMessage(string key, string value, Headers headers, string topic);
+        Task ProduceMessageWithCustomHeaders(string key, string value, List<HeaderRequest> headers, string topic);
         List<ConsumeResult<string, string>> GetMessagesFromBeginning(string topic);
         List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x);
         List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber);

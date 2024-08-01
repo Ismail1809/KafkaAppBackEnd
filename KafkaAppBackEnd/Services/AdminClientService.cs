@@ -651,6 +651,18 @@ namespace KafkaAppBackEnd.Services
             await _producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = value, Headers = headers });
         }
 
+        public async Task ProduceMessageWithCustomHeaders(string key, string value, List<HeaderRequest> headers, string topic)
+        {
+            var headersResult = new Headers();
+
+            foreach (var header in headers)
+            {
+                headersResult.Add(new Header(header.Key.ToString(), Encoding.UTF8.GetBytes(header.Value)));
+            }
+
+            await _producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = value, Headers = headersResult });
+        }
+
         public async Task ProduceRandomNumberOfMessages(int numberOfMessages, string topic)
         {
             Random rnd = new Random();
