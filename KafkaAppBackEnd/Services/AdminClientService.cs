@@ -418,6 +418,10 @@ namespace KafkaAppBackEnd.Services
 
         public List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber)
         {
+            if(pageSize * pageNumber - pageSize >= GetTopicRecordsCount(topic))
+            {
+                return [];
+            }
             int startOffset = (pageNumber - 1) * pageSize;
             int endOffset = startOffset + pageSize;
             long diff = startOffset;
