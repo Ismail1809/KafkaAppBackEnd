@@ -17,7 +17,7 @@ fi
 
 # Publish the application
 echo "Publishing the application..."
-dotnet publish -o publish-kafka --configuration $CONFIGURATION --output $PUBLISH_DIR --runtime $RUNTIME --self-contained true
+dotnet publish -o publish-kafka --runtime osx-arm64 -c Release --self-contained true
 
 # Check if the publish was successful
 if [ $? -eq 0 ]; then
@@ -29,4 +29,5 @@ fi
 
 # Run the published application (if it's a console app)
 echo "Running the published application..."
-$PUBLISH_DIR/KafkaAppBackEnd
+cd publish-kafka
+./KafkaAppBackEnd
