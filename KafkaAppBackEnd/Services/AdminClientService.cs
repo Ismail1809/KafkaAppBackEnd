@@ -32,6 +32,7 @@ using Avro.IO;
 using Microsoft.DotNet.MSIdentity.Shared;
 using Microsoft.CodeAnalysis;
 using System.Collections.Concurrent;
+using System.Text.Json;
 
 namespace KafkaAppBackEnd.Services
 {
@@ -423,34 +424,23 @@ namespace KafkaAppBackEnd.Services
             var topicData = GetTopic(topic);
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), startOffset)).ToList();
 
-            _consumer.Subscribe(topic);
             _consumer.Assign(partitions);
 
             List<ConsumeResult<string, string>> messages = new List<ConsumeResult<string, string>>();
-
-            int coveredPartitions = 0;
             int topicPartitionCount = topicData.Partitions.Count;
 
             while (startOffset < (pageNumber - 1) * pageSize + pageSize * topicPartitionCount)
             {
                 try
                 {
-                    var consumeResult = _consumer.Consume();
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
                     if (consumeResult.IsPartitionEOF)
                     {
-                        coveredPartitions++;
-                        if (coveredPartitions == topicPartitionCount)
-                        {
-                            break;
-                        }
-                        continue;
+                        return messages.Where(m => m.Offset >= startOffset).ToList();
                     }
-                    else if (consumeResult.Offset.Value < (pageNumber - 1) * pageSize + pageSize)
-                    {
-                        messages.Add(consumeResult);
-                        startOffset++;
-                    }
+
+                    startOffset++;
                 }
                 catch (ConsumeException ex) when (ex.Error.Code == ErrorCode.Local_MaxPollExceeded)
                 {
@@ -460,7 +450,6 @@ namespace KafkaAppBackEnd.Services
 
                     messages.Add(consumeResult);
                 }
-
             }
 
             return messages.Where(m => m.Offset >= startOffset).ToList(); 
@@ -657,10 +646,10 @@ namespace KafkaAppBackEnd.Services
 
             foreach (var header in headers)
             {
-                headersResult.Add(new Header(header.Key.ToString(), Encoding.UTF8.GetBytes(header.Value)));
+                headersResult.Add(new Header(JsonConvert.SerializeObject(header.Key.ToString()), Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(header.Value))));
             }
 
-            await _producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = value, Headers = headersResult });
+            await _producer.ProduceAsync(topic, new Message<string, string> { Key = JsonConvert.SerializeObject(key), Value = JsonConvert.SerializeObject(value), Headers = headersResult });
         }
 
         public async Task ProduceRandomNumberOfMessages(int numberOfMessages, string topic)
