@@ -698,7 +698,7 @@ namespace KafkaAppBackEnd.Services
                 headersResult.Add(new Header(JsonConvert.SerializeObject(header.Key.ToString()), Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(header.Value))));
             }
 
-            await _producer.ProduceAsync(topic, new Message<string, string> { Key = JsonConvert.SerializeObject(key), Value = JsonConvert.SerializeObject(value), Headers = headersResult });
+            await _producer.ProduceAsync(topic, new Message<string, string> { Key = key, Value = value, Headers = headersResult });
         }
 
         public async Task ProduceRandomNumberOfMessages(int numberOfMessages, string topic)
