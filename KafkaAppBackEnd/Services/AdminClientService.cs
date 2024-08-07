@@ -263,7 +263,7 @@ namespace KafkaAppBackEnd.Services
             foreach (var topicPartition in topicData)
             {
                 offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
-                lastOffset += offsets.High;
+                lastOffset = offsets.High;
 
                 listPartitionsOffsets.Add(new PartitionOffsets { Partition = topicPartition.Partition, Offset = lastOffset });
             }
@@ -448,7 +448,8 @@ namespace KafkaAppBackEnd.Services
 
         public List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber)
         {
-            if(pageSize * pageNumber - pageSize >= GetTopicRecordsCount(topic))
+            var topicRecordCount = GetTopicRecordsCount(topic);
+            if (pageSize * pageNumber - pageSize >= topicRecordCount)
             {
                 return [];
             }
