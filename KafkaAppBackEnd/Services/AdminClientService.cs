@@ -251,6 +251,26 @@ namespace KafkaAppBackEnd.Services
             return Convert.ToInt32(lastOffset);
         }
 
+        public List<PartitionOffsets> GetPartitionRecordsCount(string topicName)
+        {
+
+            var topicData = GetTopic(topicName).Partitions;
+            var listPartitionsOffsets = new List<PartitionOffsets>();
+
+            WatermarkOffsets offsets;
+            long lastOffset = 0;
+
+            foreach (var topicPartition in topicData)
+            {
+                offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
+                lastOffset += offsets.High;
+
+                listPartitionsOffsets.Add(new PartitionOffsets { Partition = topicPartition.Partition, Offset = lastOffset });
+            }
+
+            return listPartitionsOffsets;
+        }
+
         public async Task<List<GetConsumerGroupsResponse>> GetConsumerGroups()
         {
             List<GetConsumerGroupsResponse> consumerGroups = new List<GetConsumerGroupsResponse>();
@@ -363,9 +383,14 @@ namespace KafkaAppBackEnd.Services
             {
                 try
                 {
-                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));    
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
-                    if (consumeResult.IsPartitionEOF)
+                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
+                    {
+                        continue;
+                    }
+
+                    if (consumeResult.IsPartitionEOF) 
                     {
                         return messages;
                     }
@@ -398,6 +423,11 @@ namespace KafkaAppBackEnd.Services
                 {
                     var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
+                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
+                    {
+                        continue;
+                    }
+
                     if (consumeResult.IsPartitionEOF)
                     {
                         return messages.Where(m => m.Offset >= x).ToList();
@@ -426,20 +456,29 @@ namespace KafkaAppBackEnd.Services
             int endOffset = startOffset + pageSize;
             long diff = startOffset;
 
-            WatermarkOffsets offsets = null;
+            PartitionOffsets offsets = null;
 
             var topicData = GetTopic(topic);
+
+            var timer = new Stopwatch();
+            timer.Start();
+            var listPartitionOffsets = GetPartitionRecordsCount(topic);
+            timer.Stop();
+            Console.WriteLine("Time taken on query watermark offsets " + timer.ElapsedMilliseconds.ToString());
+
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), startOffset)).ToList();
 
             _consumer.Assign(partitions);
 
+            timer = new Stopwatch();
+            timer.Start();
             foreach (var partition in partitions)
             {
-                offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topic, partition.Partition), TimeSpan.FromSeconds(1));
+                offsets = listPartitionOffsets.Find(p => p.Partition == partition.Partition);
                 
-                if(diff > offsets.High - 1)
+                if(diff > Math.Max(offsets.Offset - 1, 0))
                 {
-                    diff -= offsets.High.Value;
+                    diff -= offsets.Offset;
                 }
                 else
                 {
@@ -447,6 +486,9 @@ namespace KafkaAppBackEnd.Services
                     break;
                 }
             }
+            timer.Stop();
+            Console.WriteLine("Time taken on foreach " + timer.ElapsedMilliseconds.ToString());
+
 
             List<ConsumeResult<string, string>> messages = new List<ConsumeResult<string, string>>();
             int topicPartitionCount = topicData.Partitions.Count;
@@ -464,14 +506,24 @@ namespace KafkaAppBackEnd.Services
                 {
                     var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
-                    if(consumeResult.Offset >= offsets.High.Value - 1 && consumeResult.Partition < topicPartitionCount -1)
+                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
                     {
-                        messages.Add(consumeResult);
-                        remainingMessages--;
+                        _consumer.Assign(new TopicPartitionOffset(topic, consumeResult.Partition + 1, Offset.Beginning));
+                        continue;
+                    }
+
+                    if (consumeResult.Offset >= offsets.Offset - 1 && consumeResult.Partition < topicPartitionCount -1)
+                    {
+                        if (consumeResult.Message != null)
+                        {
+                            messages.Add(consumeResult);
+                            remainingMessages--;
+                        }
+                        offsets = listPartitionOffsets.Find(p => p.Partition == consumeResult.Partition + 1);
                         _consumer.Assign(new TopicPartitionOffset(consumeResult.Topic, consumeResult.Partition + 1, Offset.Beginning));
                         continue;
                     }
-                    else if (consumeResult.Offset >= offsets.High.Value - 1 && consumeResult.Partition == topicPartitionCount - 1)
+                    else if (consumeResult.Offset >= offsets.Offset - 1 && consumeResult.Partition == topicPartitionCount - 1)
                     {
                         messages.Add(consumeResult);
                         remainingMessages--;
@@ -485,7 +537,7 @@ namespace KafkaAppBackEnd.Services
                         remainingMessages--;
                     }
 
-                    if (consumeResult.IsPartitionEOF)
+                    else if (consumeResult.IsPartitionEOF)
                     {
                         _consumer.Unassign();
                         break;
@@ -503,6 +555,7 @@ namespace KafkaAppBackEnd.Services
 
             return messages.ToList(); 
         }
+
 
         public IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, int choice)
         {
