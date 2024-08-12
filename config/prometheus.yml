@@ -1,0 +1,39 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: 'prometheus'
+    honor_timestamps: true
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: https
+    tls_config:
+      insecure_skip_verify: true
+    static_configs:
+      - targets:
+        - host.docker.internal:7174
+  - job_name: 'node-exporter'
+    scrape_interval: 10s
+    scrape_timeout: 10s
+    scheme: http
+    tls_config:
+      insecure_skip_verify: true
+    static_configs:
+      - targets: ['node_exporter:9100']
+  - job_name: 'kafka-broker'
+    scrape_interval: 10s
+    scrape_timeout: 10s
+    scheme: http
+    tls_config:
+      insecure_skip_verify: true
+    static_configs:
+      - targets: ['broker:7801']
+  
+rule_files:
+  - rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - 'alertmanager:9093'

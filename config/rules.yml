@@ -1,0 +1,20 @@
+groups:
+- name: example
+  rules:
+  # - alert: InstanceDown
+  # avg(irate(node_cpu_seconds_total{mode="idle"}[1m]) * 100) < 50
+    # expr: up == 0
+    # for: 1m
+    # labels:
+    #   severity: warning
+    # annotations:
+    #   summary: "Insatnce down"
+    #   description: "App is down"
+  # - alert: HighCPUUsage
+  #   expr: avg(irate(node_cpu_seconds_total{mode="idle"}[1m]) * 100) < 15
+  #   for: 2m
+  #   labels:
+  #     severity: critical
+  #   annotations:
+  #     summary: "High CPU usage detected on {{ $labels.instance }}"
+  #     description: "CPU usage is above 85% for more than 1 minute on instance {{ $labels.instance }}."

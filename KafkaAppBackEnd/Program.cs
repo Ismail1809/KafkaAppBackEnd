@@ -20,6 +20,8 @@ using System.Net.Security;
 using KafkaAppBackEnd.Models;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
+using Prometheus;
+using KafkaAppBackEnd.Middlewares;
 
 var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -74,6 +76,7 @@ builder.Services.AddDbContext<DatabaseContext>(option => option.UseNpgsql(Config
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton(new AdminClientBuilder(adminConfig).Build());
 builder.Services.AddSingleton<IAdminClientService, AdminClientService>();
@@ -100,6 +103,9 @@ if (app.Environment.IsProduction() || app.Environment.IsDevelopment())
     app.ApplyMigrations();
 }
 
+app.UseMetricServer();
+app.UseHttpMetrics();
+
 app.UseHttpsRedirection();
 
 app.UseHttpLogging();
@@ -109,5 +115,14 @@ app.UseCors();
 app.UseAuthorization();
 
 app.MapControllers();
+app.UseRouting();
+
+app.UseMiddleware<RequestMetricsMiddleware>();
+
+app.UseEndpoints(app =>
+{
+    app.MapMetrics();
+    app.MapHealthChecks("/health");
+});
 
 app.Run();

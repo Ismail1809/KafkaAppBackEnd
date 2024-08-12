@@ -374,6 +374,7 @@ namespace KafkaAppBackEnd.Services
         {
             var topicData = GetTopic(topic);
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), new Offset(0))).ToList();
+            var count = 0;
 
             _consumer.Assign(partitions);
 
@@ -387,6 +388,12 @@ namespace KafkaAppBackEnd.Services
 
                     if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
                     {
+                        count ++;
+
+                        if (count == topicData.Partitions.Count)
+                        {
+                            return messages;
+                        }
                         continue;
                     }
 
@@ -461,18 +468,12 @@ namespace KafkaAppBackEnd.Services
 
             var topicData = GetTopic(topic);
 
-            var timer = new Stopwatch();
-            timer.Start();
             var listPartitionOffsets = GetPartitionRecordsCount(topic);
-            timer.Stop();
-            Console.WriteLine("Time taken on query watermark offsets " + timer.ElapsedMilliseconds.ToString());
 
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), startOffset)).ToList();
 
             _consumer.Assign(partitions);
 
-            timer = new Stopwatch();
-            timer.Start();
             foreach (var partition in partitions)
             {
                 offsets = listPartitionOffsets.Find(p => p.Partition == partition.Partition);
@@ -487,8 +488,6 @@ namespace KafkaAppBackEnd.Services
                     break;
                 }
             }
-            timer.Stop();
-            Console.WriteLine("Time taken on foreach " + timer.ElapsedMilliseconds.ToString());
 
 
             List<ConsumeResult<string, string>> messages = new List<ConsumeResult<string, string>>();

@@ -1,5 +1,21 @@
 ---
 version: '2'
+
+networks:
+  monitoring:
+    driver: bridge
+  mynetwork:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+  mypgdata:
+
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
@@ -19,7 +35,7 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
-      - "9101:9101"
+      - "7801:7801"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
@@ -40,6 +56,12 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+      KAFKA_OPTS: -javaagent:/usr/share/jmx_exporter/jmx_prometheus_javaagent-1.0.1.jar=7801:/usr/share/jmx_exporter/kafka-2_0_0.yml
+    volumes:
+      - ./config/jmx_prometheus_javaagent-1.0.1.jar:/usr/share/jmx_exporter/jmx_prometheus_javaagent-1.0.1.jar
+      - ./config/kafka-2_0_0.yml:/usr/share/jmx_exporter/kafka-2_0_0.yml
+    networks:
+      - default
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.0
@@ -67,10 +89,58 @@ services:
       - mypgdata:/var/lib/postgresql/data
     ports:
       - "5959:5432"
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/rules.yml:/etc/prometheus/rules.yml
+      - prometheus-data:/prometheus
+    links:
+      - alertmanager:alertmanager
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - default
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - monitoring
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:v1.5.0
+    container_name: node_exporter
+    command: '--path.rootfs=/host'
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - "./config/alertmanager.yml:/etc/alertmanager/alertmanager.yml"
+      - alertmanager-data:/data
+      - ./config/alertmanager-templates:/etc/alertmanager/alertmanager-templates
+    command: --config.file=/etc/alertmanager/alertmanager.yml 
+    networks:
+      - monitoring
 
-networks:
-  mynetwork:
-    driver: bridge
-
-volumes:
-  mypgdata:
