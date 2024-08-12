@@ -500,13 +500,15 @@ namespace KafkaAppBackEnd.Services
 
             int remainingMessages = pageSize;
 
+            if (topicRecordCount - remainingMessages <= 0) remainingMessages = topicRecordCount; 
+
             while (remainingMessages > 0)
             {
                 try
                 {
-                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
+                    var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(10));
 
-                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
+                    if ((consumeResult is null) || consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
                     {
                         _consumer.Assign(new TopicPartitionOffset(topic, consumeResult.Partition + 1, Offset.Beginning));
                         continue;
