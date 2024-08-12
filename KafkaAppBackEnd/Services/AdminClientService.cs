@@ -473,7 +473,6 @@ namespace KafkaAppBackEnd.Services
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), startOffset)).ToList();
 
             _consumer.Assign(partitions);
-
             foreach (var partition in partitions)
             {
                 offsets = listPartitionOffsets.Find(p => p.Partition == partition.Partition);
@@ -500,14 +499,17 @@ namespace KafkaAppBackEnd.Services
 
             int remainingMessages = pageSize;
 
+            if (topicRecordCount - remainingMessages <= 0) remainingMessages = topicRecordCount;
+
             while (remainingMessages > 0)
             {
                 try
                 {
                     var consumeResult = _consumer.Consume(TimeSpan.FromSeconds(2));
 
-                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0)
+                    if (consumeResult.IsPartitionEOF && consumeResult.Offset == 0) 
                     {
+                        offsets = listPartitionOffsets.Find(p => p.Partition == consumeResult.Partition + 1);
                         _consumer.Assign(new TopicPartitionOffset(topic, consumeResult.Partition + 1, Offset.Beginning));
                         continue;
                     }
