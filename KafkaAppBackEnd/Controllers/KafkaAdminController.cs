@@ -26,13 +26,31 @@ namespace KafkaAppBackEnd.Controllers
             _adminClientService = adminClientService;
         }
 
-        [HttpGet("get-topics")]
-        public ActionResult<IEnumerable<GetTopicsResponse>> GetTopics([FromQuery] bool hideInternal)
+        [HttpGet("get-topic")]
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopic([FromQuery] string topicName)
         {
-            //_configuration["Kafka:BootstrapServers"] = adress;
             try
             {
-                var listOfTopics = _adminClientService.GetTopics(hideInternal);
+                var topicDescription = await _adminClientService.GetTopicInfo(topicName);
+
+                if (topicDescription == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(topicDescription);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-topics")]
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopics([FromQuery] bool hideInternal)
+        {
+            try
+            {
+                var listOfTopics = await _adminClientService.GetTopics(hideInternal);
 
                 if (listOfTopics == null)
                 {
@@ -46,32 +64,69 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        //[HttpGet("get-topic-size")]
-        //public ActionResult<string> GetTopicSize([FromQuery] string topicName)
-        //{
-        //    //_configuration["Kafka:BootstrapServers"] = adress;
-        //    try
-        //    {
-        //        var listOfTopics = _adminClientService.GetTopicSize(topicName);
-
-        //        if (listOfTopics == null)
-        //        {
-        //            return base.Ok("List of topics is null");
-        //        }
-        //        return base.Ok(listOfTopics);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
-        //    }
-        //}
-
-        [HttpGet("get-consumer-groups")]
-        public ActionResult<List<GetConsumerGroupsResponse>> GetConsumerGroups()
+        [HttpGet("get-topics-size-info")]
+        public async Task<ActionResult<IEnumerable<GetTopicResponse>>> GetTopicsSizeInfo([FromQuery] bool hideInternal)
         {
             try
             {
-                var consumerGroup = _adminClientService.GetConsumerGroups();
+                var listOfTopics = await _adminClientService.GetTopicsSizeInfo(hideInternal);
+
+                if (listOfTopics == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(listOfTopics);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-topic-config")]
+        public async Task<ActionResult<List<DescribeConfigsResult>>> GetTopicConfig([FromQuery] string topicName)
+        {
+            try
+            {
+                var topicConfig = await _adminClientService.GetTopicConfig(topicName);
+
+                if (topicConfig == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(topicConfig);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-topic-records-count")]
+        public ActionResult<long> GetTopicRecordsCount([FromQuery] string topicName)
+        {
+            try
+            {
+                var recordsCount = _adminClientService.GetTopicRecordsCount(topicName);
+
+                if (recordsCount == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(recordsCount);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
+        [HttpGet("get-consumer-groups")]
+        public async Task<ActionResult<List<GetConsumerGroupsResponse>>> GetConsumerGroups()
+        {
+            try
+            {
+                var consumerGroup = await _adminClientService.GetConsumerGroups();
 
                 if (consumerGroup == null)
                 {
@@ -94,6 +149,21 @@ namespace KafkaAppBackEnd.Controllers
             try
             {
                 await _adminClientService.CreateTopic(topicRequest);
+                return Ok("Topic was successfully created!");
+            }
+            catch (CreateTopicsException e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while creating topic {e.Results[0].Topic}: {e.Results[0].Error.Reason}");
+            }
+        }
+
+        [HttpPost("create-topics")]
+        public async Task<ActionResult<string>> CreateTopics([FromBody] List<CreateTopicRequest> topicsRequests)
+        {
+
+            try
+            {
+                await _adminClientService.CreateTopics(topicsRequests);
                 return Ok("Topic was successfully created!");
             }
             catch (CreateTopicsException e)
@@ -148,6 +218,20 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpGet("consume-messages-from-beginning")]
+        public ActionResult<List<ConsumeResult<string, string>>> ConsumeMessagesFromBeginning([FromQuery] string topicName)
+        {
+            try
+            {
+                var messages = _adminClientService.GetMessagesFromBeginning(topicName);
+                return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
+            }
+            catch (Exception e)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e}");
+            }
+        }
+
         [HttpGet("consume-messages")]
         public async Task<ActionResult<List<ConsumeResult<string, string>>>> ConsumeMessages([FromQuery]string topicName, int offset)
         {
@@ -158,7 +242,7 @@ namespace KafkaAppBackEnd.Controllers
             }
             catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic {e}");
             }
         }
 
@@ -172,16 +256,16 @@ namespace KafkaAppBackEnd.Controllers
             }
             catch (Exception e)
             {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic");
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"An error occurred while consuming from topic: {e}");
             }
         }
 
-        [HttpGet("search-by-keys")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromQuery] List<string> listOfKeys, string topic, SearchOption choice)
+        [HttpPost("search-by-keys")]
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByKeys([FromBody] SearchByKeysRequestcs request)
         {
             try
             {
-                var messages = _adminClientService.SearchByKeys(topic, listOfKeys, choice);
+                var messages = _adminClientService.SearchByKeys(request.Topic, request.ListOfKeys, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)
@@ -190,12 +274,12 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
-        [HttpGet("search-by-headers")]
-        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromQuery] List<string> listOfStrings, string topic, SearchOption choice)
+        [HttpPost("search-by-headers")]
+        public async Task<ActionResult<ConsumeTopicResponse[]>> SearchByHeaders([FromBody] SearchByHeadersRequest request)
         {
             try
             {
-                var messages = _adminClientService.SearchByHeaders(topic, listOfStrings, choice);
+                var messages = _adminClientService.SearchByHeaders(request.Topic, request.ListOfStrings, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value, HeaderValue = m.Message.Headers.ToList().Select(h => Encoding.UTF8.GetString(h.GetValueBytes())).FirstOrDefault()}));
             }
             catch (Exception e)
@@ -284,11 +368,11 @@ namespace KafkaAppBackEnd.Controllers
 
 
         [HttpPost("produce-message")]
-        public async Task<ActionResult<string>> ProduceMessage(Message<string,string> message, string topic)
+        public async Task<ActionResult<string>> ProduceMessage([FromBody] MessageRequest request)
         {
             try
             {
-                await _adminClientService.ProduceMessage(message, topic);
+                await _adminClientService.ProduceMessageWithCustomHeaders(request.Key, request.Value, request.Headers, request.Topic);
                 return Ok("Message was produced!");
             }
             catch (Exception e)

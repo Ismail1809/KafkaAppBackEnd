@@ -1,0 +1,10 @@
+﻿{{ define "telegram.default" }}
+    {{ range .Alerts }}
+    {{ if eq .Status "firing"}}🔥 <b>{{ .Status}}</b> 🔥{{ else }}✅ <b>{{ .Status}}</b> ✅{{ end }}
+    alertName:<b>{{ .Labels.alertname }}</b>
+    summary:{{ if .Annotations.summary }} {{ .Annotations.summary }} {{ end }}
+    description:{{ if .Annotations.description }} {{ .Annotations.description }} {{ end }}
+  {{ else }}
+    DEBUG: No alerts found
+  {{ end }}
+{{ end }}

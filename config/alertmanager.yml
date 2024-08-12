@@ -1,0 +1,46 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'ismayil.ismayilzada18@gmail.com'
+  smtp_auth_username: 'ismayil.ismayilzada18@gmail.com'
+  smtp_auth_password: 'lymc jurn rmpe przo'
+  smtp_require_tls: true
+  telegram_api_url: "https://api.telegram.org"
+
+templates:
+  - '/etc/alertmanager/alertmanager-templates/*.tmpl'
+
+route:
+  group_by: ['alertname', 'severity']
+  repeat_interval: 1h
+  receiver: telegram
+  routes:
+    - receiver: telegram
+      group_wait: 10s
+      match_re:
+        severity: critical
+      continue: true
+    # - receiver: "gmail-notifications"
+    #   group_wait: 10s
+    #   match_re:
+    #     severity: critical|warning
+
+receivers:
+ # - name: 'gmail-notifications'
+ #   email_configs:
+ #   - to: 'ismayil.ismayilzada18@gmail.com'
+ - name: telegram
+   telegram_configs:
+    - bot_token: "7281941783:AAG02WXEesETNjX6tyhBH4UwV13e19BqTXA"
+      chat_id: -4288102843
+      api_url: "https://api.telegram.org"
+      send_resolved: true
+      parse_mode: HTML
+      message: '{{ template "telegram.default" . }}'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'dev', 'instance']

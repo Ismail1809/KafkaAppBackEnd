@@ -13,7 +13,15 @@ using KafkaAppBackEnd.Repositories;
 using KafkaAppBackEnd.Mappers;
 using KafkaAppBackEnd.Extensions;
 using System;
-
+using System.Management.Automation.Runspaces;
+using System.Management.Automation;
+using System.Text;
+using System.Net.Security;
+using KafkaAppBackEnd.Models;
+using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Templates.BlazorIdentity.Pages;
+using Prometheus;
+using KafkaAppBackEnd.Middlewares;
 
 var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
 logger.Debug("init main");
@@ -28,8 +36,11 @@ var consumerConfig = new ConsumerConfig
     BootstrapServers = "localhost: 9092",
     GroupId = "order-reader",
     AutoOffsetReset = AutoOffsetReset.Earliest,
-    EnableAutoOffsetStore = false,
-    EnableAutoCommit = false
+    EnableAutoOffsetStore = true,
+    EnableAutoCommit = true,
+    SessionTimeoutMs = 30000,
+    HeartbeatIntervalMs = 3000,
+    EnablePartitionEof = true,
 };
 
 var producerConfig = new ProducerConfig
@@ -52,7 +63,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins(corsSettings.GetSection("AllowedOrigins").Get<string[]>()) // take from appsettings.json
+        policy.WithOrigins(corsSettings.GetSection("AllowedOrigins").Get<string[]>())
               .WithMethods(corsSettings.GetSection("AllowedMethods").Get<string[]>())
               .AllowAnyHeader();
     });
@@ -65,6 +76,7 @@ builder.Services.AddDbContext<DatabaseContext>(option => option.UseNpgsql(Config
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton(new AdminClientBuilder(adminConfig).Build());
 builder.Services.AddSingleton<IAdminClientService, AdminClientService>();
@@ -72,23 +84,45 @@ builder.Services.AddScoped<IConnectionRepository, ConnectionRepository>();
 builder.Services.AddScoped<IClusterService, ClusterService>();
 builder.Services.AddSingleton(new ProducerBuilder<string, string>(producerConfig).Build());
 builder.Services.AddSingleton(new ConsumerBuilder<string, string>(consumerConfig).Build());
+builder.Services.AddHttpLogging((logging) =>
+{
+    logging.LoggingFields = HttpLoggingFields.RequestQuery | HttpLoggingFields.ResponseBody | HttpLoggingFields.RequestHeaders | HttpLoggingFields.ResponseHeaders| HttpLoggingFields.ResponseStatusCode;;
+    logging.MediaTypeOptions.AddText("application/json");
+    logging.RequestBodyLogLimit = 4096;
+    logging.ResponseBodyLogLimit = 4096;
+    logging.CombineLogs = true;
+
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsProduction() || app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
     app.ApplyMigrations();
 }
 
+app.UseMetricServer();
+app.UseHttpMetrics();
+
 app.UseHttpsRedirection();
+
+app.UseHttpLogging();
 
 app.UseCors();
 
 app.UseAuthorization();
 
 app.MapControllers();
+app.UseRouting();
+
+app.UseMiddleware<RequestMetricsMiddleware>();
+
+app.UseEndpoints(app =>
+{
+    app.MapMetrics();
+    app.MapHealthChecks("/health");
+});
 
 app.Run();

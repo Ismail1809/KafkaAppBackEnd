@@ -13,6 +13,7 @@ using static System.Net.Mime.MediaTypeNames;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using AutoMapper;
+using Confluent.Kafka.Admin;
 
 namespace KafkaAppBackEnd.Controllers
 {
@@ -27,6 +28,19 @@ namespace KafkaAppBackEnd.Controllers
         {
             _clusterService = clusterService;
             _mapper = mapper;
+        }
+
+        [HttpGet("get-cluster-info")]
+        public async Task<ActionResult<List<DescribeConfigsResult>>> GetClusterInfo()
+        {
+            var clusterResult = await _clusterService.GetClusterConfig();
+
+            if (clusterResult == null)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, "Can't get info");
+            }
+
+            return Ok(clusterResult);
         }
 
         [HttpGet("get-connection")]
@@ -59,7 +73,7 @@ namespace KafkaAppBackEnd.Controllers
         [HttpPut("update-connection")]
         public async Task<ActionResult<UpdateConnectionRequest>> UpdateConnection([FromBody] UpdateConnectionRequest connection)
         {
-            var existingConnection = await _clusterService.GetConnection(connection.Id);
+            var existingConnection = await _clusterService.GetConnection(connection.ConnectionId);
 
             if (existingConnection == null || connection == null)
             {
@@ -68,7 +82,7 @@ namespace KafkaAppBackEnd.Controllers
 
             try
             {
-                await _clusterService.UpdateConnection(connection.Id, connection);
+                await _clusterService.UpdateConnection(connection.ConnectionId, connection);
                 return Ok(connection);
             }
             catch (DbUpdateConcurrencyException)
@@ -80,10 +94,8 @@ namespace KafkaAppBackEnd.Controllers
         [HttpPost("create-connection")]
         public async Task<ActionResult<Connection>> CreateConnection([FromBody]CreateConnectionRequest connection)
         {
-            var connections = await _clusterService.GetBootStrapServers();
-
-            if(connections.Contains(connection.BootStrapServer)){
-                return Ok("Connection already exist!");
+            if((connection.ConnectionName == null || connection.ConnectionName == "")|| (connection.BootStrapServer == null || connection.BootStrapServer == "")){
+                return base.StatusCode((int)HttpStatusCode.BadRequest, "Either connection name or bootstrap server is empty");
             }
 
             var newConnection = await _clusterService.PostConnection(connection);
