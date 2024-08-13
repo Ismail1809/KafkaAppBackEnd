@@ -6,12 +6,12 @@ scrape_configs:
     scrape_interval: 15s
     scrape_timeout: 10s
     metrics_path: /metrics
-    scheme: https
+    scheme: http
     tls_config:
       insecure_skip_verify: true
     static_configs:
       - targets:
-        - host.docker.internal:7174
+        - host.docker.internal:5000
   - job_name: 'node-exporter'
     scrape_interval: 10s
     scrape_timeout: 10s
@@ -27,7 +27,7 @@ scrape_configs:
     tls_config:
       insecure_skip_verify: true
     static_configs:
-      - targets: ['broker:7801']
+      - targets: ['host.docker.internal:7801']
   
 rule_files:
   - rules.yml

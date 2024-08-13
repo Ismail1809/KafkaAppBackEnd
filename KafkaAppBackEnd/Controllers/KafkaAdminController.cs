@@ -83,6 +83,25 @@ namespace KafkaAppBackEnd.Controllers
             }
         }
 
+        [HttpGet("get-topic-records-count")]
+        public async Task<ActionResult<int>> GetTopicRecordsCount([FromQuery] string topicName)
+        {
+            try
+            {
+                var recordsCount = await _adminClientService.GetTopicRecordsCount(topicName);
+
+                if (recordsCount == null)
+                {
+                    return base.Ok("List of topics is null");
+                }
+                return base.Ok(recordsCount);
+            }
+            catch (Exception ex)
+            {
+                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
+            }
+        }
+
         [HttpGet("get-topic-config")]
         public async Task<ActionResult<List<DescribeConfigsResult>>> GetTopicConfig([FromQuery] string topicName)
         {
@@ -95,25 +114,6 @@ namespace KafkaAppBackEnd.Controllers
                     return base.Ok("List of topics is null");
                 }
                 return base.Ok(topicConfig);
-            }
-            catch (Exception ex)
-            {
-                return base.StatusCode((int)HttpStatusCode.InternalServerError, $"Error while accessing list of topics: {ex.Message}");
-            }
-        }
-
-        [HttpGet("get-topic-records-count")]
-        public ActionResult<long> GetTopicRecordsCount([FromQuery] string topicName)
-        {
-            try
-            {
-                var recordsCount = _adminClientService.GetTopicRecordsCount(topicName);
-
-                if (recordsCount == null)
-                {
-                    return base.Ok("List of topics is null");
-                }
-                return base.Ok(recordsCount);
             }
             catch (Exception ex)
             {
@@ -251,7 +251,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.GetSpecificPages(topic, pageSize, pageNumber);
+                var messages = await _adminClientService.GetSpecificPages(topic, pageSize, pageNumber);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)

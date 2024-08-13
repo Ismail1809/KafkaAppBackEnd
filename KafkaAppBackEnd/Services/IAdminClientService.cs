@@ -9,9 +9,8 @@ namespace KafkaAppBackEnd.Services
         Task<IEnumerable<GetTopicResponse>> GetTopics(bool hideInternal);
         Task<IEnumerable<GetTopicSizeResponse>> GetTopicsSizeInfo(bool hideInternal);
         TopicDescription GetTopic(string topicName);
+        Task<int> GetTopicRecordsCount(string topicName);
         Task<List<DescribeConfigsResult>> GetTopicConfig(string topicName);
-        Task<List<LogPartition>> GetTopicSize(string? param);
-        int GetTopicRecordsCount(string topicName);
         Task<List<GetConsumerGroupsResponse>> GetConsumerGroups();
         long GetOverAllLag(List<MemberDescription> members);
         Task CreateTopic(CreateTopicRequest topicRequest);
@@ -22,7 +21,7 @@ namespace KafkaAppBackEnd.Services
         Task ProduceMessageWithCustomHeaders(string key, string value, List<HeaderRequest> headers, string topic);
         List<ConsumeResult<string, string>> GetMessagesFromBeginning(string topic);
         List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x);
-        List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber);
+        Task<List<ConsumeResult<string, string>>> GetSpecificPages(string topic, int pageSize, int pageNumber);
         IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, int choice);
         IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, int choice);
         IEnumerable<ConsumeResult<string, string>> SearchByTimeStamps(string topic, DateTime? time1, DateTime? time2);

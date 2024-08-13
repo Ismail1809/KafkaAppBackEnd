@@ -33,6 +33,7 @@ using Microsoft.DotNet.MSIdentity.Shared;
 using Microsoft.CodeAnalysis;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Net.Http;
 
 namespace KafkaAppBackEnd.Services
 {
@@ -49,6 +50,7 @@ namespace KafkaAppBackEnd.Services
         private IConsumer<string, string> _consumer;
         private readonly IConfiguration _configuration;
         private DockerClient client;
+        private static readonly HttpClient _httpClient = new HttpClient();
 
         public AdminClientService(ILogger<AdminClientService> logger, IAdminClient adminClient, 
             IProducer<string, string> producer, IConsumer<string, string> consumer, IConfiguration configuration)
@@ -71,6 +73,8 @@ namespace KafkaAppBackEnd.Services
             var topicNames = metadata.Topics;
             DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
             var visibleData = data.TopicDescriptions.First(t => t.Name == topicName);
+            var topicMetrics = await GetTopicsRecordsProm("kafka_log_log_logendoffset{topic='" + topicName + "'}");
+            var topicRecordsCount = topicMetrics.Select(tc => Convert.ToInt32(tc.value[1])).Sum();
 
             var response = new GetTopicResponse()
             {
@@ -80,7 +84,7 @@ namespace KafkaAppBackEnd.Services
                 TopicId = visibleData.TopicId,
                 ReplicationFactor = visibleData.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
                 Partitions = visibleData.Partitions.Select(p => new KafkaTopicPartition { PartitionNumber = p.Partition.ToString() }).ToList(),
-                RecordsCount = GetTopicRecordsCount(visibleData.Name)
+                RecordsCount = topicRecordsCount
             };
 
             return response;
@@ -101,13 +105,15 @@ namespace KafkaAppBackEnd.Services
         {
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
-            var data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            var data = await _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null);
             var topics = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
 
             var result = new List<GetTopicResponse>();
 
+            var topicMetrics = await GetTopicsRecordsProm("kafka_log_log_logendoffset");
+
             foreach (var topic in topics) {
-                var response = new GetTopicResponse() 
+                var response = new GetTopicResponse()
                 {
                     Name = topic.Name,
                     Error = topic.Error,
@@ -115,59 +121,70 @@ namespace KafkaAppBackEnd.Services
                     TopicId = topic.TopicId,
                     ReplicationFactor = topic.Partitions.FirstOrDefault()?.Replicas.Count ?? 0,
                     Partitions = topic.Partitions.Select(p => new KafkaTopicPartition { PartitionNumber = p.Partition.ToString() }).ToList(),
-                    RecordsCount = GetTopicRecordsCount(topic.Name)
+                    RecordsCount = topicMetrics.Where(tc => tc.metric.topic == topic.Name).Select(tc => Convert.ToInt32(tc.value[1])).Sum()
                 };
 
                 result.Add(response);
             }
 
             return result;
+        }
 
+        public async Task<int> GetTopicRecordsCount(string topicName)
+        {
+            var topicMetrics = await GetTopicsRecordsProm("kafka_log_log_logendoffset{topic='" + topicName + "'}");
+            var topicRecordsCount = topicMetrics.Select(tc => Convert.ToInt32(tc.value[1])).Sum();
 
+            return topicRecordsCount;
+        }
+
+        public async Task<List<Result>> GetTopicsRecordsProm(string? param)
+        {
+            var query = param;
+            var url = $"http://localhost:9090/api/v1/query?query={query}";
+
+            try
+            {
+                // Send the HTTP GET request to Prometheus
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                // Parse the JSON response
+                var content = await response.Content.ReadAsStringAsync();
+                var prometheusResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<PrometheusResponse>(content);
+
+                return prometheusResponse.data.result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error fetching Kafka log end offset from Prometheus: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<IEnumerable<GetTopicSizeResponse>> GetTopicsSizeInfo(bool hideInternal)
         {
-            var topicsPartitions = await GetTopicSize(null);
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
-            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            var data = await _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null);
             var topics = data.TopicDescriptions.Where(t => (hideInternal ? !t.IsInternal : true) && !t.Name.StartsWith("_confluent") && !t.Name.StartsWith("_schemas"));
 
             var result = new List<GetTopicSizeResponse>();
 
+            var topicSizeInfo = await GetTopicsRecordsProm("kafka_log_log_size");
+
             foreach (var topic in topics)
             {
-                var p = topic.Partitions;
-                var c = topicsPartitions.Where(x => x.partition.Substring(0, x.partition.LastIndexOf("-")) == topic.Name);
-
-                var joinResult = p.GroupJoin(
-                                    c,
-                                    vd => vd.Partition,
-                                    tp => int.Parse(tp.partition.Split("-").Last()),
-                                    (vd, tp) => new { vd, tp }
-                                    ).SelectMany(
-                                        x => x.tp.DefaultIfEmpty(), (vd, tp) => new { vd, tp })
-                                    .Select(
-                                        x => new KafkaTopicPartition()
-                                        {
-                                            PartitionNumber = x?.tp?.partition.Split("-").Last() ?? x?.vd.vd.Partition.ToString(),
-                                            Size = x?.tp?.size ?? 0
-                                        }
-                                    ).ToList();
-
                 var response = new GetTopicSizeResponse()
                 {
                     Name = topic.Name,
-                    Partitions = joinResult,
+                    Partitions = topicSizeInfo.Where(tc => tc.metric.topic == topic.Name).Select(tc => new KafkaTopicPartition() { PartitionNumber = tc.metric.partition, Size = Convert.ToInt32(tc.value[1]) }).ToList(),
                 };
 
                 result.Add(response);
             }
 
             return result;
-
-
         }
 
 
@@ -184,71 +201,6 @@ namespace KafkaAppBackEnd.Services
             var configs = await _adminClient.DescribeConfigsAsync(resourceList);
 
             return configs;
-        }
-
-        public async Task<List<LogPartition>> GetTopicSize(string? param)
-        {
-            try
-            {
-                string? containerName = _configuration.GetSection("ContainerName").Value;
-
-                var outputstream = new MemoryStream();
-
-                var execParams = new ContainerExecCreateParameters()
-                {
-                    AttachStderr = true,
-                    AttachStdout = true,
-                    Cmd = new List<string> { "sh", "-c", $"kafka-log-dirs --describe --bootstrap-server localhost:9092 {param}"},
-                };
-
-                var exec = await client.Exec.ExecCreateContainerAsync(containerName, execParams);
-
-                var stream = await client.Exec.StartAndAttachContainerExecAsync(exec.ID, false);
-
-                await stream.CopyOutputToAsync(
-                    null,
-                    outputstream,
-                    Console.OpenStandardError(),
-                    CancellationToken.None);
-
-
-                outputstream.Seek(0, SeekOrigin.Begin);
-
-                using (var reader = new StreamReader(outputstream))
-                {
-                    var brokerId = _adminClient.GetMetadata(TimeSpan.FromSeconds(10)).OriginatingBrokerId;
-
-                    var outputString = await reader.ReadToEndAsync();
-                    var json = outputString.Split("\n")[2];
-
-                    var deserializedJson = JsonConvert.DeserializeObject<Root>(json);
-
-                    var partitions = deserializedJson.brokers.Find(b => b.broker == brokerId).logDirs.FirstOrDefault().partitions;
-
-                    return partitions;
-                }
-            }
-            catch(Exception ex)
-            {
-                return new List<LogPartition>();
-            }
-
-        }
-
-        public int GetTopicRecordsCount(string topicName)
-        {
-            var topicData = GetTopic(topicName).Partitions;
-
-            WatermarkOffsets offsets;
-            long lastOffset = 0;
-
-            foreach (var topicPartition in topicData)
-            {
-                offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
-                lastOffset += offsets.High;
-            }
-
-            return Convert.ToInt32(lastOffset);
         }
 
         public List<PartitionOffsets> GetPartitionRecordsCount(string topicName)
@@ -453,9 +405,10 @@ namespace KafkaAppBackEnd.Services
             }
         }
 
-        public List<ConsumeResult<string, string>> GetSpecificPages(string topic, int pageSize, int pageNumber)
+        public async Task<List<ConsumeResult<string, string>>> GetSpecificPages(string topic, int pageSize, int pageNumber)
         {
-            var topicRecordCount = GetTopicRecordsCount(topic);
+            var topicMetrics= await GetTopicsRecordsProm("kafka_log_log_logendoffset{topic='" + topic + "'}");
+            var topicRecordCount = topicMetrics.Select(tc => Convert.ToInt32(tc.value[1])).Sum();
             if (pageSize * pageNumber - pageSize >= topicRecordCount)
             {
                 return [];
