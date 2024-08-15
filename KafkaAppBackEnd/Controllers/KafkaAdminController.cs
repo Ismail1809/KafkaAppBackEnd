@@ -84,11 +84,11 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("get-topic-records-count")]
-        public async Task<ActionResult<int>> GetTopicRecordsCount([FromQuery] string topicName)
+        public async Task<ActionResult<long>> GetTopicRecordsCount([FromQuery] string topicName)
         {
             try
             {
-                var recordsCount = await _adminClientService.GetTopicRecordsCount(topicName);
+                var recordsCount = await _adminClientService.GetTopicRecordsCountKafka(topicName);
 
                 if (recordsCount == null)
                 {
@@ -219,11 +219,11 @@ namespace KafkaAppBackEnd.Controllers
         }
 
         [HttpGet("consume-messages-from-beginning")]
-        public ActionResult<List<ConsumeResult<string, string>>> ConsumeMessagesFromBeginning([FromQuery] string topicName)
+        public async Task<ActionResult<List<ConsumeResult<string, string>>>> ConsumeMessagesFromBeginning([FromQuery] string topicName)
         {
             try
             {
-                var messages = _adminClientService.GetMessagesFromBeginning(topicName);
+                var messages = await _adminClientService.GetMessagesFromBeginning(topicName);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)
@@ -237,7 +237,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.GetMessagesFromX(topicName, offset);
+                var messages = await _adminClientService.GetMessagesFromX(topicName, offset);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value}));
             }
             catch (Exception e)
@@ -265,7 +265,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.SearchByKeys(request.Topic, request.ListOfKeys, request.SearchOption);
+                var messages = await _adminClientService.SearchByKeys(request.Topic, request.ListOfKeys, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)
@@ -279,7 +279,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.SearchByHeaders(request.Topic, request.ListOfStrings, request.SearchOption);
+                var messages = await _adminClientService.SearchByHeaders(request.Topic, request.ListOfStrings, request.SearchOption);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value, HeaderValue = m.Message.Headers.ToList().Select(h => Encoding.UTF8.GetString(h.GetValueBytes())).FirstOrDefault()}));
             }
             catch (Exception e)
@@ -293,7 +293,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.SearchByTimeStamps(topic, time1, time2);
+                var messages = await _adminClientService.SearchByTimeStamps(topic, time1, time2);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)
@@ -307,7 +307,7 @@ namespace KafkaAppBackEnd.Controllers
         {
             try
             {
-                var messages = _adminClientService.SearchByPartitions(topic, partition);
+                var messages = await _adminClientService.SearchByPartitions(topic, partition);
                 return Ok(messages.Select(m => new ConsumeTopicResponse { Message = m.Message, Partition = m.Partition.Value, Offset = m.Offset.Value }));
             }
             catch (Exception e)

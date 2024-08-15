@@ -91,11 +91,11 @@ namespace KafkaAppBackEnd.Services
         }
 
 
-        public TopicDescription GetTopic(string topicName)
+        public async Task<TopicDescription> GetTopic(string topicName)
         {
             var metadata = _adminClient.GetMetadata(TimeSpan.FromSeconds(10));
             var topicNames = metadata.Topics;
-            DescribeTopicsResult data = _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null).Result;
+            DescribeTopicsResult data = await _adminClient.DescribeTopicsAsync(TopicCollection.OfTopicNames(topicNames.Select(t => t.Topic)), null);
             var visibleData = data.TopicDescriptions.FirstOrDefault(t => t.Name == topicName);
 
             return visibleData;
@@ -203,16 +203,16 @@ namespace KafkaAppBackEnd.Services
             return configs;
         }
 
-        public List<PartitionOffsets> GetPartitionRecordsCount(string topicName)
+        public async Task<List<PartitionOffsets>> GetPartitionRecordsCount(string topicName)
         {
 
-            var topicData = GetTopic(topicName).Partitions;
+            var topicData = await GetTopic(topicName);
             var listPartitionsOffsets = new List<PartitionOffsets>();
 
             WatermarkOffsets offsets;
             long lastOffset = 0;
 
-            foreach (var topicPartition in topicData)
+            foreach (var topicPartition in topicData.Partitions)
             {
                 offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
                 lastOffset = offsets.High;
@@ -221,6 +221,23 @@ namespace KafkaAppBackEnd.Services
             }
 
             return listPartitionsOffsets;
+        }
+
+        public async Task<long> GetTopicRecordsCountKafka(string topicName)
+        {
+
+            var topicData = await GetTopic(topicName);
+
+            WatermarkOffsets offsets;
+            long lastOffset = 0;
+
+            foreach (var topicPartition in topicData.Partitions)
+            {
+                offsets = _consumer.QueryWatermarkOffsets(new TopicPartition(topicName, topicPartition.Partition), TimeSpan.FromSeconds(1));
+                lastOffset += offsets.High;
+            }
+
+            return lastOffset;
         }
 
         public async Task<List<GetConsumerGroupsResponse>> GetConsumerGroups()
@@ -307,7 +324,7 @@ namespace KafkaAppBackEnd.Services
 
         public async Task CloneTopic(string oldTopicName, string newTopicName)
         {
-            var consumedMessages = GetMessagesFromX(oldTopicName, 0);
+            var consumedMessages = await GetMessagesFromX(oldTopicName, 0);
             var meta = _adminClient.GetMetadata(TimeSpan.FromSeconds(5));
             var topic = meta.Topics.SingleOrDefault(t => t.Topic == oldTopicName);
             var replicationFactor = (short)topic.Partitions.First().Replicas.Length;
@@ -322,9 +339,9 @@ namespace KafkaAppBackEnd.Services
             }
         }
 
-        public List<ConsumeResult<string, string>> GetMessagesFromBeginning(string topic)
+        public async Task<List<ConsumeResult<string, string>>> GetMessagesFromBeginning(string topic)
         {
-            var topicData = GetTopic(topic);
+            var topicData = await GetTopic(topic);
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), new Offset(0))).ToList();
             var count = 0;
 
@@ -367,9 +384,9 @@ namespace KafkaAppBackEnd.Services
             }
         }
 
-        public List<ConsumeResult<string, string>> GetMessagesFromX(string topic, int x)
+        public async Task<List<ConsumeResult<string, string>>> GetMessagesFromX(string topic, int x)
         {
-            var topicData = GetTopic(topic);
+            var topicData = await GetTopic(topic);
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), x)).ToList();
 
             _consumer.Assign(partitions);
@@ -419,9 +436,9 @@ namespace KafkaAppBackEnd.Services
 
             PartitionOffsets offsets = null;
 
-            var topicData = GetTopic(topic);
+            var topicData = await GetTopic(topic);
 
-            var listPartitionOffsets = GetPartitionRecordsCount(topic);
+            var listPartitionOffsets = await GetPartitionRecordsCount(topic);
 
             var partitions = topicData.Partitions.Select(partition => new TopicPartitionOffset(topicData.Name, new Partition(partition.Partition), startOffset)).ToList();
 
@@ -512,9 +529,9 @@ namespace KafkaAppBackEnd.Services
         }
 
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByKeys(string topic, List<string> listOfKeys, int choice)
+        public async Task<IEnumerable<ConsumeResult<string, string>>> SearchByKeys(string topic, List<string> listOfKeys, int choice)
         {
-            var messages = GetMessagesFromBeginning(topic);
+            var messages = await GetMessagesFromBeginning(topic);
             if (choice == (int)SearchOption.Exact)
             {
                 return messages.Where(m => listOfKeys.Contains(m.Message.Key.ToString()));
@@ -527,9 +544,9 @@ namespace KafkaAppBackEnd.Services
             return messages;
         }
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByHeaders(string topic, List<string> listOfPairs, int choice)
+        public async Task<IEnumerable<ConsumeResult<string, string>>> SearchByHeaders(string topic, List<string> listOfPairs, int choice)
         {
-            var messages = GetMessagesFromBeginning(topic);
+            var messages = await GetMessagesFromBeginning(topic);
             if (choice == (int)SearchOption.Exact)
             {
                 return messages.Where(m => m.Message.Headers.Any(h => listOfPairs.Contains(h.Key) 
@@ -547,18 +564,18 @@ namespace KafkaAppBackEnd.Services
         }
 
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByTimeStamps(string topic, DateTime? time1, DateTime? time2)
+        public async Task<IEnumerable<ConsumeResult<string, string>>> SearchByTimeStamps(string topic, DateTime? time1, DateTime? time2)
         {
-            var messages = GetMessagesFromBeginning(topic);
+            var messages = await GetMessagesFromBeginning(topic);
             var startTime = time1 ?? DateTime.MinValue;
             var endTime = time2 ?? DateTime.MaxValue;
 
             return messages.Where(m => startTime < m.Message.Timestamp.UtcDateTime && endTime > m.Message.Timestamp.UtcDateTime);
         }
 
-        public IEnumerable<ConsumeResult<string, string>> SearchByPartitions(string topic, int partition)
+        public async Task<IEnumerable<ConsumeResult<string, string>>> SearchByPartitions(string topic, int partition)
         {
-            var messages = GetMessagesFromBeginning(topic);
+            var messages = await GetMessagesFromBeginning(topic);
             return messages.Where(m => m.Partition.Value == partition);
         }
 
